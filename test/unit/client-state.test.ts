@@ -185,6 +185,7 @@ describe("clipboard and paste planning", () => {
     expect(planPaste(state, doc, "c")).toMatchObject({ ok: true, inputs: [{ expectedRevision: "missing" }] });
     expect(planPaste(state, doc, "b")).toMatchObject({ ok: false, reason: expect.stringContaining("opt-in") });
     expect(planPaste(state, doc, "d")).toMatchObject({ ok: false, reason: expect.stringContaining("multi-host-manager") });
+    expect(planPaste(state, { ...doc, pluginId: OWN_PLUGIN_ID, sourceHost: "a" }, "hub")).toMatchObject({ ok: false, reason: expect.stringContaining("own settings") });
   });
 
   it("pastes to several selected hosts in one go", () => {

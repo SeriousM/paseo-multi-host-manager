@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { docReadRpc } from "../../shared/contracts";
+import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
 import type { Json } from "../../shared/mask";
 import { hostData } from "../state/grid-model";
 import { itemOnHost } from "../state/staging";
@@ -22,6 +23,8 @@ export function editorAccess(host: GridHost | undefined, pluginId: string): Edit
   if (!data) return { ok: false, reason: `${host.label} returned no data.`, optIn: false };
   if (!host.result.snapshot.features.includes("pluginSettings")) return { ok: false, reason: `${host.label} runs a Paseo version without plugin settings documents.`, optIn: false };
   if (!data.plugins.some((plugin) => plugin.id === pluginId)) return { ok: false, reason: `${pluginId} is not installed on ${host.label}.`, optIn: false };
+  // The companion refuses writes to its own documents (`not_allowed`): they hold the consent switch.
+  if (pluginId.toLowerCase() === OWN_PLUGIN_ID) return { ok: false, reason: `multi-host-manager's own settings can only be changed on ${host.label} itself. This editor is read-only for them.`, optIn: false };
   switch (data.companion.state) {
     case "missing":
       return { ok: false, reason: `multi-host-manager is not installed on ${host.label}; it reads and writes the documents there. Install it on that host first.`, optIn: false };

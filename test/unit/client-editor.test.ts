@@ -164,6 +164,10 @@ describe("editorAccess", () => {
     }
   });
 
+  it("keeps multi-host-manager's own documents read-only: the companion refuses remote writes to them", () => {
+    expect(editorAccess(host({ plugins: ["paseo-multi-host-manager"] }), "paseo-multi-host-manager")).toMatchObject({ ok: false, optIn: false, reason: expect.stringContaining("read-only") });
+  });
+
   it("refuses a missing plugin, missing feature, offline or unknown host", () => {
     expect(editorAccess(host(), "other")).toMatchObject({ ok: false });
     expect(editorAccess(host({ features: [] }), "keep-awake")).toMatchObject({ ok: false });
