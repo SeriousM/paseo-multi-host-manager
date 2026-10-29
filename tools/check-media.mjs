@@ -136,7 +136,8 @@ function halfDifference(image) {
 }
 
 function pairDifference(first, second) {
-  if (first.width !== second.width || first.height !== second.height) return Number.NaN;
+  // Different sizes cannot be the same frame (a phone-width capture next to desktop ones).
+  if (first.width !== second.width || first.height !== second.height) return Number.POSITIVE_INFINITY;
   const channels = Math.min(first.channels, second.channels);
   let total = 0;
   let samples = 0;
