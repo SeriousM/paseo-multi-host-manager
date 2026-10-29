@@ -5,10 +5,18 @@ import { DaemonAuthenticationError, DaemonClient } from "@getpaseo/client/intern
 import type { Logger } from "@getpaseo/client/internal/daemon-client";
 import { createHostChannelTransport, createHostClient } from "@getpaseo/client/node";
 import type { HostDirectory, HostSummary } from "@getpaseo/protocol/hosts";
-import type { MutableDaemonConfig, MutableDaemonConfigPatch, ServerInfoStatusPayload } from "@getpaseo/protocol/messages";
+import type { MutableDaemonConfig, MutableDaemonConfigPatch, PluginListItem, ServerInfoStatusPayload } from "@getpaseo/protocol/messages";
 
 export { DaemonAuthenticationError };
-export type { DaemonClient, HostDirectory, HostSummary, MutableDaemonConfig, MutableDaemonConfigPatch, ServerInfoStatusPayload };
+export type {
+  DaemonClient,
+  HostDirectory,
+  HostSummary,
+  MutableDaemonConfig,
+  MutableDaemonConfigPatch,
+  PluginListItem,
+  ServerInfoStatusPayload,
+};
 export type FeatureName = keyof NonNullable<ServerInfoStatusPayload["features"]>;
 
 // The client's default logger prints connection details to the plugin log.
