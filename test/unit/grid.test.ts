@@ -101,13 +101,13 @@ describe("grid load", () => {
     const { load } = setup({ srv_W: { plugins } });
     const data = dataOf(await load(), "srv_W");
     expect(data.plugins).toEqual([
-      { id: "keep-awake", name: null, version: "0.1.3", enabled: true, status: "running", source: { kind: "registry", installSource: "hichamboushaba/keep-awake" } },
-      { id: "plain-npm", name: null, version: "2.0.0", enabled: true, status: "running", source: { kind: "npm", installSource: "npm:@scope/pkg:plugins/a" } },
-      { id: "from-git", name: null, version: "abc123", enabled: true, status: "running", source: { kind: "git", installSource: "git:https://github.com/a/b.git" } },
-      { id: "secret-git", name: null, version: "def456", enabled: true, status: "running", source: { kind: "git", installSource: null } },
-      { id: "custom-registry", name: null, version: null, enabled: true, status: "running", source: { kind: "registry", installSource: "reg.example.org/me/thing" } },
-      { id: "local", name: null, version: null, enabled: true, status: "running", source: { kind: "directory", installSource: null } },
-      { id: "off", name: "Off one", version: null, enabled: false, status: "disabled", source: { kind: "directory", installSource: null } },
+      { id: "keep-awake", name: null, version: "0.1.3", enabled: true, status: "running", source: { kind: "registry", installSource: "hichamboushaba/keep-awake", ref: null, pinned: false } },
+      { id: "plain-npm", name: null, version: "2.0.0", enabled: true, status: "running", source: { kind: "npm", installSource: "npm:@scope/pkg@2.0.0:plugins/a", ref: null, pinned: true } },
+      { id: "from-git", name: null, version: "abc123", enabled: true, status: "running", source: { kind: "git", installSource: "git:https://github.com/a/b.git", ref: "abc123", pinned: true } },
+      { id: "secret-git", name: null, version: "def456", enabled: true, status: "running", source: { kind: "git", installSource: null, ref: null, pinned: false } },
+      { id: "custom-registry", name: null, version: null, enabled: true, status: "running", source: { kind: "registry", installSource: "reg.example.org/me/thing", ref: null, pinned: false } },
+      { id: "local", name: null, version: null, enabled: true, status: "running", source: { kind: "directory", installSource: null, ref: null, pinned: false } },
+      { id: "off", name: "Off one", version: null, enabled: false, status: "disabled", source: { kind: "directory", installSource: null, ref: null, pinned: false } },
     ]);
     const text = JSON.stringify(data);
     for (const leaked of ["C:\\\\", "hunter2", "abs\\\\path"]) expect(text).not.toContain(leaked);

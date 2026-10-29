@@ -44,7 +44,8 @@ export const ROWS: readonly RowDef[] = [
   { id: "hooks", label: "Terminal agent hooks", section: "daemon", source: "config", path: "enableTerminalAgentHooks", write: "live", type: "bool" },
   { id: "autoarch", label: "Auto-archive after merge", section: "daemon", source: "config", path: "autoArchiveAfterMerge", write: "live", type: "bool" },
   { id: "sys", label: "Append system prompt", section: "daemon", source: "config", path: "appendSystemPrompt", write: "live", type: "text" },
-  // Entries lose `command` (binary paths) and `env` (credentials) when read. A paste merges: it cannot remove providers on the target.
+  // Entries lose `command` (binary paths) and `env` (credentials) when read. A paste merges into providers the target
+  // already has: it never adds or removes one, and `<masked>` keys keep the target's value (server/rows/patch.ts).
   { id: "prov", label: "Custom providers", section: "daemon", source: "config", path: "providers", write: "live", type: "json" },
   { id: "pen", label: "Plugins enabled (global switch)", section: "daemon", source: "config", path: "pluginsEnabled", write: "live", type: "bool" },
   { id: "pw", label: "Daemon password", section: "protected", source: "none", path: null, write: "never", type: "text" },

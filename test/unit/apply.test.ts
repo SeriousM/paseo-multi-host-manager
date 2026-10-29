@@ -4,7 +4,7 @@ import type { ApplyItem, ApplyOutcome } from "../../shared/contracts";
 import { connectRoutedClient } from "../../server/broker/daemon-client";
 import type * as DaemonClientModule from "../../server/broker/daemon-client";
 import { OriginSession } from "../../server/broker/origin-session";
-import { applyItems } from "../../server/rpc/apply";
+import { APPLY_BASE_TIMEOUT_MS, applyItems, hostTimeoutMs } from "../../server/rpc/apply";
 import { codedError, savedHost, SECRETS } from "./broker-fakes";
 import { ALL_FEATURES, plugin, pluginFake } from "./rpc-fakes";
 import type { PluginFake, PluginFakeOptions } from "./rpc-fakes";
@@ -51,15 +51,15 @@ describe("apply order", () => {
   it("runs enabling switches first and disabling switches last, the rest in staged order", async () => {
     const { W, session } = setup();
     const results = await run(session, [
-      { id: "a", host: "srv_W", op: "setRow", rowId: "relay", value: false },
+      { id: "a", host: "srv_W", op: "setRow", rowId: "relay", value: false, confirmed: true },
       { id: "b", host: "srv_W", op: "setRow", rowId: "sys", value: "hello" },
-      { id: "c", host: "srv_W", op: "setRow", rowId: "pen", value: false },
+      { id: "c", host: "srv_W", op: "setRow", rowId: "pen", value: false, confirmed: true },
       { id: "d", host: "srv_W", op: "setRow", rowId: "mcp", value: true },
       { id: "e", host: "srv_W", op: "setRow", rowId: "pen", value: true },
       { id: "f", host: "srv_W", op: "setRow", rowId: "relay", value: true },
     ]);
-    // pen=true and relay=true lead, pen=false and relay=false trail; sys and mcp keep their order.
-    expect(writes(W)).toEqual(["patch:pluginsEnabled", "patch:relay", "patch:appendSystemPrompt", "patch:mcp", "patch:relay", "patch:pluginsEnabled"]);
+    // pen=true and relay=true lead, then sys and mcp in staged order, then pen=false; relay=false is the very last.
+    expect(writes(W)).toEqual(["patch:pluginsEnabled", "patch:relay", "patch:appendSystemPrompt", "patch:mcp", "patch:pluginsEnabled", "patch:relay"]);
     expect(results.map((result) => result.id)).toEqual(["a", "b", "c", "d", "e", "f"]);
     expect(statuses(results)).toEqual(["ok", "ok", "ok", "ok", "ok", "ok"]);
   });
@@ -67,7 +67,7 @@ describe("apply order", () => {
   it("runs plugin operations before pluginsEnabled is switched off", async () => {
     const { L, session } = setup({ L: { plugins: [plugin("keep-awake")] } });
     await run(session, [
-      { id: "off", host: "srv_L", op: "setRow", rowId: "pen", value: false },
+      { id: "off", host: "srv_L", op: "setRow", rowId: "pen", value: false, confirmed: true },
       { id: "disable", host: "srv_L", op: "setPluginEnabled", pluginId: "keep-awake", enabled: false },
     ]);
     expect(writes(L)).toEqual(["disable:keep-awake", "patch:pluginsEnabled"]);
@@ -240,7 +240,8 @@ describe("apply confirmation and validation", () => {
     ["secret row", { rowId: "pw", value: "x" }, "protected_row"],
     ["wrong type", { rowId: "mcp", value: "yes" }, "wrong_value_type"],
     ["placeholder", { rowId: "sys", value: "<masked>" }, "masked_value"],
-    ["masked provider field", { rowId: "prov", value: { x: { options: { apiKey: "<masked>" } } } }, "masked_value"],
+    ["provider with only masked fields", { rowId: "prov", value: { x: { options: { apiKey: "<masked>" } } } }, "masked_value"],
+    ["masked provider array element", { rowId: "prov", value: { x: { args: ["<masked>"] } } }, "masked_value"],
     ["empty providers", { rowId: "prov", value: {} }, "wrong_value_type"],
     ["provider command", { rowId: "prov", value: { x: { command: ["/bin/x"] } } }, "wrong_value_type"],
   ])("rejects a %s", async (_name, input, detail) => {
@@ -283,7 +284,7 @@ describe("setRow", () => {
   });
 
   it("applies providers without binary paths and environment", async () => {
-    const { W, session } = setup();
+    const { W, session } = setup({ W: { config: { providers: { claude: { enabled: true } } } } });
     const results = await run(session, [{ id: "p", host: "srv_W", op: "setRow", rowId: "prov", value: { claude: { enabled: false } } }]);
     expect(results[0].outcome.status).toBe("ok");
     expect(W.config.providers).toEqual({ claude: { enabled: false } });
@@ -432,5 +433,152 @@ describe("apply output", () => {
     expect(applyRpc.output.parse({ results })).toEqual({ results });
     const text = JSON.stringify(results);
     for (const secret of Object.values(SECRETS)) expect(text).not.toContain(secret);
+  });
+});
+
+describe("lockout confirmation and self target", () => {
+  const OWN = "paseo-multi-host-manager";
+
+  it.each([
+    ["relay off on a relay-linked host", { host: "srv_W", op: "setRow", rowId: "relay", value: false }],
+    ["pluginsEnabled off on a remote", { host: "srv_W", op: "setRow", rowId: "pen", value: false }],
+    ["pluginsEnabled off on the hub", { host: "srv_hub", op: "setRow", rowId: "pen", value: false }],
+    ["removing this plugin on a remote", { host: "srv_W", op: "removePlugin", pluginId: OWN }],
+    ["disabling this plugin on a remote", { host: "srv_W", op: "setPluginEnabled", pluginId: OWN, enabled: false }],
+  ] as const)("rejects %s without confirmation and contacts no host", async (_name, item) => {
+    const { hub, session } = setup();
+    const results = await run(session, [{ id: "i", ...item }]);
+    expect(results[0].outcome).toMatchObject({ status: "failed", error: { code: "lockout_confirmation_required" } });
+    expect(routed).not.toHaveBeenCalled();
+    expect(writes(hub)).toEqual([]);
+  });
+
+  it("runs them once confirmed", async () => {
+    const { W, session } = setup({ W: { plugins: [plugin(OWN)] } });
+    const results = await run(session, [
+      { id: "r", host: "srv_W", op: "setRow", rowId: "relay", value: false, confirmed: true },
+      { id: "d", host: "srv_W", op: "setPluginEnabled", pluginId: OWN, enabled: false, confirmed: true },
+    ]);
+    expect(statuses(results)).toEqual(["ok", "ok"]);
+    expect(writes(W)).toEqual([`disable:${OWN}`, "patch:relay"]);
+  });
+
+  it("needs no lockout confirmation for relay off over a non-relay link, switches on, or other plugins", async () => {
+    const { hub, W, session } = setup({ W: { plugins: [plugin("keep-awake")] } });
+    const results = await run(session, [
+      { id: "hubRelay", host: "srv_hub", op: "setRow", rowId: "relay", value: false },
+      { id: "on", host: "srv_W", op: "setRow", rowId: "pen", value: true },
+      { id: "other", host: "srv_W", op: "setPluginEnabled", pluginId: "keep-awake", enabled: false },
+      { id: "enableOwn", host: "srv_W", op: "setPluginEnabled", pluginId: OWN, enabled: true },
+    ]);
+    expect(statuses(results)).toEqual(["ok", "ok", "ok", "ok"]);
+    expect(writes(hub)).toEqual(["patch:relay"]);
+    expect(writes(W)).toEqual(["patch:pluginsEnabled", "disable:keep-awake", `enable:${OWN}`]);
+  });
+
+  it.each([
+    ["remove", { op: "removePlugin", pluginId: OWN, confirmed: true }],
+    ["disable", { op: "setPluginEnabled", pluginId: OWN, enabled: false, confirmed: true }],
+  ] as const)("refuses to %s this plugin on the hub even when confirmed", async (_name, item) => {
+    const { hub, session } = setup();
+    const results = await run(session, [{ id: "i", host: "srv_hub", ...item }]);
+    expect(results[0].outcome).toMatchObject({ status: "failed", error: { code: "invalid_item", detail: "self_target" } });
+    expect(writes(hub)).toEqual([]);
+  });
+});
+
+describe("install sources", () => {
+  it.each(["git:https://user:pw-123456@github.com/a/b.git", "https://ghtoken123456@github.com/a/b.git", "git:ssh://git:pw-123456@host/a/b.git"])(
+    "rejects credentials in %s without contacting the host",
+    async (source) => {
+      const { session } = setup();
+      const results = await run(session, [{ id: "i", host: "srv_W", op: "installPlugin", source, confirmed: true }]);
+      expect(results[0].outcome).toMatchObject({ status: "failed", error: { code: "invalid_item", detail: "credentials_in_source" } });
+      expect(routed).not.toHaveBeenCalled();
+      expect(JSON.stringify(results)).not.toContain("123456");
+    },
+  );
+
+  it("accepts an ssh login name, which is not a credential", async () => {
+    const { W, session } = setup();
+    const results = await run(session, [{ id: "i", host: "srv_W", op: "installPlugin", source: "git:ssh://git@github.com/a/b.git", confirmed: true }]);
+    expect(results[0].outcome.status).toBe("ok");
+    expect(writes(W)).toEqual(["install:git:ssh://git@github.com/a/b.git"]);
+  });
+});
+
+describe("host references", () => {
+  it("accepts the registration id as well as the server id, and echoes the reference given", async () => {
+    const { W, session } = setup();
+    const results = await run(session, [
+      { id: "a", host: "reg_srv_W", op: "setRow", rowId: "sys", value: "by registration" },
+      { id: "b", host: "srv_W", op: "setRow", rowId: "mcp", value: true },
+    ]);
+    expect(statuses(results)).toEqual(["ok", "ok"]);
+    expect(results[0].host).toBe("reg_srv_W");
+    // Both references name one host: one connection, items in staged order.
+    expect(routed).toHaveBeenCalledTimes(1);
+    expect(writes(W)).toEqual(["patch:appendSystemPrompt", "patch:mcp"]);
+  });
+});
+
+describe("setRow verification", () => {
+  it("reports ok but unverified when only the re-read fails", async () => {
+    const { W, session } = setup();
+    W.fail.getDaemonConfig = codedError("connection lost", "DAEMON_CONNECTION_LOST");
+    const results = await run(session, [{ id: "r", host: "srv_W", op: "setRow", rowId: "relay", value: false, confirmed: true }]);
+    expect(results[0].outcome).toEqual({ status: "ok", unverified: true });
+    expect(W.config.relay).toEqual({ enabled: false });
+  });
+
+  it("still fails when the patch itself fails", async () => {
+    const { W, session } = setup();
+    W.fail.patchDaemonConfig = codedError("no", "boom");
+    const results = await run(session, [{ id: "s", host: "srv_W", op: "setRow", rowId: "sys", value: "x" }]);
+    expect(results[0].outcome).toMatchObject({ status: "failed", error: { code: "host_error", detail: "boom" } });
+  });
+});
+
+describe("providers paste", () => {
+  const target = { providers: { claude: { enabled: true, options: { apiKey: "real-key-on-target" } } } };
+
+  it("updates only providers the target has, keeps masked keys and reports the others as ignored", async () => {
+    const { W, session } = setup({ W: { config: target } });
+    const results = await run(session, [
+      { id: "p", host: "srv_W", op: "setRow", rowId: "prov", value: { claude: { enabled: false, options: { apiKey: "<masked>" } }, extra: { enabled: true } } },
+    ]);
+    expect(results[0].outcome).toEqual({ status: "ignored", paths: ["providers.extra"] });
+    expect(W.config.providers).toEqual({ claude: { enabled: false, options: { apiKey: "real-key-on-target" } } });
+    expect(W.calls).toEqual(["getDaemonConfig", "patch:providers", "getDaemonConfig"]);
+  });
+
+  it("does not patch at all when the target has none of the providers", async () => {
+    const { W, session } = setup({ W: { config: target } });
+    const results = await run(session, [{ id: "p", host: "srv_W", op: "setRow", rowId: "prov", value: { a: { enabled: true }, b: { enabled: false } } }]);
+    expect(results[0].outcome).toEqual({ status: "ignored", paths: ["providers.a", "providers.b"] });
+    expect(writes(W)).toEqual([]);
+  });
+
+  it("is ok when every provider exists on the target", async () => {
+    const { W, session } = setup({ W: { config: target } });
+    const results = await run(session, [{ id: "p", host: "srv_W", op: "setRow", rowId: "prov", value: { claude: { enabled: false } } }]);
+    expect(results[0].outcome).toEqual({ status: "ok" });
+    expect(W.config.providers).toEqual({ claude: { enabled: false, options: { apiKey: "real-key-on-target" } } });
+  });
+});
+
+describe("per-host timeout", () => {
+  it("is the base plus one step per install or update item", () => {
+    const base = { host: "h" };
+    const items: ApplyItem[] = [
+      { ...base, id: "i", op: "installPlugin", source: "a/b", confirmed: true },
+      { ...base, id: "u", op: "updatePlugin", pluginId: "p" },
+      { ...base, id: "s", op: "setRow", rowId: "sys", value: "x" },
+      { ...base, id: "r", op: "reloadPlugin", pluginId: "p" },
+    ];
+    expect(hostTimeoutMs([])).toBe(APPLY_BASE_TIMEOUT_MS);
+    expect(APPLY_BASE_TIMEOUT_MS).toBe(60_000);
+    expect(hostTimeoutMs(items)).toBe(180_000);
+    expect(hostTimeoutMs(items.slice(2))).toBe(60_000);
   });
 });

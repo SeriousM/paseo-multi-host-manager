@@ -1,5 +1,5 @@
 import type { GridPlugin, PluginSource } from "../../shared/contracts";
-import { maskJson } from "../../shared/mask";
+import { hasUrlCredentials } from "../../shared/mask";
 import type { PluginListItem } from "../broker/daemon-client";
 
 const DEFAULT_REGISTRY_HOST = "plugins.paseo.sh";
@@ -8,20 +8,29 @@ function withPath(source: string, pluginPath: string): string {
   return pluginPath === "." ? source : `${source}:${pluginPath}`;
 }
 
-/** Portable identity of a plugin, in the form `installPluginSource` takes. Never a local path, never a remote with credentials. */
+/**
+ * Portable identity of a plugin, in the form `installPluginSource` takes, pinned to this host's version where the source
+ * allows it (npm `<pkg>@<version>`, git `ref` = installed commit). Never a local path, never a remote with credentials.
+ */
 export function pluginSource(item: PluginListItem): PluginSource {
   const identity = item.installation?.identity;
+  const unpinned = { ref: null, pinned: false };
   if (identity?.kind === "npm" || identity?.kind === "git") {
     if (identity.registry) {
       const host = new URL(identity.registry.url).host;
-      return { kind: "registry", installSource: host === DEFAULT_REGISTRY_HOST ? identity.registry.id : `${host}/${identity.registry.id}` };
+      return { kind: "registry", installSource: host === DEFAULT_REGISTRY_HOST ? identity.registry.id : `${host}/${identity.registry.id}`, ...unpinned };
     }
-    if (identity.kind === "npm") return { kind: "npm", installSource: withPath(`npm:${identity.packageName}`, identity.pluginPath) };
-    const hasCredentials = maskJson(identity.remote).maskedPaths.length > 0;
-    return { kind: "git", installSource: hasCredentials ? null : withPath(`git:${identity.remote}`, identity.pluginPath) };
+    if (identity.kind === "npm") {
+      const version = item.npm?.version ?? item.installation?.currentRevision;
+      const spec = version ? `${identity.packageName}@${version}` : identity.packageName;
+      return { kind: "npm", installSource: withPath(`npm:${spec}`, identity.pluginPath), ref: null, pinned: Boolean(version) };
+    }
+    if (hasUrlCredentials(identity.remote)) return { kind: "git", installSource: null, ...unpinned };
+    const commit = item.installation?.currentRevision ?? item.commit ?? null;
+    return { kind: "git", installSource: withPath(`git:${identity.remote}`, identity.pluginPath), ref: commit, pinned: commit !== null };
   }
-  if (!identity && item.npm) return { kind: "npm", installSource: `npm:${item.npm.packageName}` };
-  return { kind: item.source === "git" ? "git" : "directory", installSource: null };
+  if (!identity && item.npm) return { kind: "npm", installSource: `npm:${item.npm.packageName}@${item.npm.version}`, ref: null, pinned: true };
+  return { kind: item.source === "git" ? "git" : "directory", installSource: null, ...unpinned };
 }
 
 export function gridPlugin(item: PluginListItem): GridPlugin {

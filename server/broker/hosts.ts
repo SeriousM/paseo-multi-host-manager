@@ -14,6 +14,11 @@ export interface HostEntry {
   unavailable: HostFailure | null;
 }
 
+/** Whether `ref` names `host`: its server id or its saved-host registration id (stable before the hub ever reached it). */
+export function isHost(host: HostEntry, ref: string): boolean {
+  return host.id === ref || host.registrationId === ref;
+}
+
 const LOOPBACK_HOST = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/i;
 
 /**

@@ -12,6 +12,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   prerelease_blocked: "This host runs a Paseo pre-release. Allow pre-releases to continue.",
   capability_disabled: "This capability is disabled on the host.",
   confirmation_required: "This change needs the user's confirmation first.",
+  lockout_confirmation_required: "This change can cut the hub off from this host. Confirm it first.",
   invalid_item: "This change is not valid for the host.",
   host_error: "The host operation failed.",
 };

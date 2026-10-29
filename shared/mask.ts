@@ -7,6 +7,19 @@ const SECRET_VALUE = /^(sk-|ghp_|gho_|github_pat_|xox[abp]-|AKIA|eyJ[\w-]+\.|\$2
 const BEARER_VALUE = /^bearer\s+\S/i;
 // URL with userinfo (`scheme://user:pass@host`, `https://token@host`): the credential sits before the `@`.
 const USERINFO_URL = /^[a-z][a-z0-9+.-]*:\/\/[^/@\s]+@/i;
+// Same userinfo, anywhere in the text (a source may carry a prefix such as `git:`); captures scheme and userinfo.
+const URL_USERINFO_ANYWHERE = /([a-z][a-z0-9+.-]*):\/\/([^/@\s]+)@/i;
+const SSH_SCHEME = /^(git\+)?ssh$/i;
+
+/**
+ * Whether `text` holds a URL credential: a `user:password@`, or a bare `token@` on any scheme but ssh, where the
+ * userinfo is only the login name (`ssh://git@host/...`, `git+ssh://git@host/...`) and the key stays on the host.
+ */
+export function hasUrlCredentials(text: string): boolean {
+  const match = URL_USERINFO_ANYWHERE.exec(text);
+  if (!match) return false;
+  return match[2].includes(":") || !SSH_SCHEME.test(match[1]);
+}
 
 /** Replaces secret-looking strings (by key name or by value shape) with MASK_PLACEHOLDER. */
 export function maskJson(value: Json): { value: Json; maskedPaths: string[] } {

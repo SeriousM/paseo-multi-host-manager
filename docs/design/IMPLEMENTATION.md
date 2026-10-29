@@ -13,7 +13,7 @@ Each tier is documented in `OVERVIEW.md` with the exact file/API it touches.
 1. After a settings-document paste, show "written, validity unknown" permanently and offer `reloadPlugin` as a follow-up.
 2. `config.patch` ignores unknown keys: verify every patch by re-reading.
 3. Companion file writes: re-read and hash-compare immediately before writing; write temp file with mode 0600, then atomic rename.
-4. Apply order: `pluginsEnabled` and `relay` first when enabling, last when disabling (disabling `pluginsEnabled` takes the companion down).
+4. Apply order: `pluginsEnabled` and `relay` first when enabling, last when disabling (disabling `pluginsEnabled` takes the companion down; `relay` off comes after it, last of all, because it can drop the hub's link). Both switch-offs, and removing or disabling this plugin on a remote, need a lockout confirmation (`lockout_confirmation_required`); removing or disabling it on the hub is refused (`self_target`). A patch whose re-read fails is reported ok but `unverified`.
 5. No rows beyond `docs/design/ROWS.md` in v1. `agents.idleRuntimeCleanup` is dropped.
 6. Plugin update and remote enable/disable are untested so far; cover them in integration tests.
 7. 0.13.0 daemon untested: test it in WP9 or raise the minimum to 0.13.2.

@@ -2,19 +2,23 @@ import type { ApplyItem, ApplyOutcome, ApplyResult, BrokerPolicy, HostFailure } 
 import { OWN_PLUGIN_ID, settingsRestoreRpc, settingsWriteRpc } from "../../shared/companion-contracts";
 import type { CompanionFailure } from "../../shared/companion-contracts";
 import { callHost } from "../broker/call";
-import { callCompanion } from "../broker/companion-call";
+import { callCompanion, companionBlocker } from "../broker/companion-call";
 import { patchConfigVerified } from "../broker/config-patch";
 import type { DaemonClient, MutableDaemonConfigPatch, PluginListItem } from "../broker/daemon-client";
 import { failureFromError, hostFailure } from "../broker/failures";
 import { withHostList } from "../broker/host-list";
+import { isHost } from "../broker/hosts";
 import type { HostEntry } from "../broker/hosts";
 import type { OriginSession } from "../broker/origin-session";
+import { hasUrlCredentials } from "../../shared/mask";
 import { ROW_BY_ID } from "../../shared/rows";
 import { gridPlugin } from "../rows/plugins";
-import { rowPatch } from "../rows/patch";
+import { existingProvidersOnly, rowPatch } from "../rows/patch";
 
-/** Per host, all of its items together; an install may run a package manager on the host. */
-export const APPLY_TIMEOUT_MS = 180_000;
+/** Per host, all of its items together, plus APPLY_PACKAGE_TIMEOUT_MS per install or update item. */
+export const APPLY_BASE_TIMEOUT_MS = 60_000;
+/** An install or update may run a package manager on the host. */
+export const APPLY_PACKAGE_TIMEOUT_MS = 60_000;
 
 /** Same shape the protocol uses to tell a local path from a managed source. A directory exists only on the host that has it. */
 const DIRECTORY_SOURCE = /^(\.\.?(?:[/\\]|$)|\/|~|[A-Za-z]:[/\\]|\\\\)/;
@@ -30,29 +34,40 @@ function failed(error: HostFailure, currentRevision?: string): ApplyOutcome {
   return currentRevision === undefined ? { status: "failed", error } : { status: "failed", error, currentRevision };
 }
 
-function plan(item: ApplyItem): Planned {
-  if ((item.op === "installPlugin" || item.op === "removePlugin") && item.confirmed !== true) {
-    return { item, rejected: failed(hostFailure("confirmation_required")) };
-  }
-  if (item.op === "installPlugin" && DIRECTORY_SOURCE.test(item.source)) {
-    return { item, rejected: failed(hostFailure("invalid_item", "directory_source")) };
-  }
+/** Checks that need no daemon call: validity, self-targeting and the confirmation rule of `applyItemSchema`. */
+function plan(item: ApplyItem, host: HostEntry): Planned {
+  const reject = (error: HostFailure): Planned => ({ item, rejected: failed(error) });
+  const ownPluginDown = (item.op === "removePlugin" || (item.op === "setPluginEnabled" && !item.enabled)) && item.pluginId === OWN_PLUGIN_ID;
+  // The hub's own copy runs this very apply and serves the UI; there is no way back from the grid.
+  if (ownPluginDown && host.isHub) return reject(hostFailure("invalid_item", "self_target"));
+  if (item.op === "installPlugin" && DIRECTORY_SOURCE.test(item.source)) return reject(hostFailure("invalid_item", "directory_source"));
+  if (item.op === "installPlugin" && hasUrlCredentials(item.source)) return reject(hostFailure("invalid_item", "credentials_in_source"));
+  let patch: MutableDaemonConfigPatch | undefined;
   if (item.op === "setRow") {
     const built = rowPatch(item.rowId, item.value);
-    return "patch" in built ? { item, rejected: null, patch: built.patch } : { item, rejected: failed(hostFailure("invalid_item", built.invalid)) };
+    if ("invalid" in built) return reject(hostFailure("invalid_item", built.invalid));
+    patch = built.patch;
   }
-  return { item, rejected: null };
+  const cutsOff = ownPluginDown || (item.op === "setRow" && item.value === false && (item.rowId === "pen" || (item.rowId === "relay" && host.link === "relay")));
+  if (cutsOff && item.confirmed !== true) return reject(hostFailure("lockout_confirmation_required"));
+  if ((item.op === "installPlugin" || item.op === "removePlugin") && item.confirmed !== true) return reject(hostFailure("confirmation_required"));
+  return { item, rejected: null, patch };
 }
 
 /**
  * Execution order within a host: `pluginsEnabled` and `relay` first when they are switched on (plugin calls and the
- * relay need them), last when switched off (switching `pluginsEnabled` off takes our own plugin, and the relay
- * connection the call may run on, down). Everything else keeps its staged order.
+ * relay need them), last when switched off: `pluginsEnabled` off takes our own plugin down, and `relay` off, the very
+ * last item, can take down the connection the call runs on. Everything else keeps its staged order.
  */
 function rank(item: ApplyItem): number {
-  const switchRow = item.op === "setRow" && (item.rowId === "pen" || item.rowId === "relay") && typeof item.value === "boolean";
-  if (!switchRow) return 1;
-  return item.value ? 0 : 2;
+  if (item.op !== "setRow" || typeof item.value !== "boolean" || (item.rowId !== "pen" && item.rowId !== "relay")) return 1;
+  if (item.value) return 0;
+  return item.rowId === "pen" ? 2 : 3;
+}
+
+/** Time budget of one host: a base plus one step per install or update item. */
+export function hostTimeoutMs(items: readonly ApplyItem[], baseMs = APPLY_BASE_TIMEOUT_MS): number {
+  return baseMs + APPLY_PACKAGE_TIMEOUT_MS * items.filter((item) => item.op === "installPlugin" || item.op === "updatePlugin").length;
 }
 
 /**
@@ -88,13 +103,6 @@ function pluginOutcome(plugin: PluginListItem): OkOutcome {
   return { status: "ok", pluginId: plugin.id, version: gridPlugin(plugin).version, pluginStatus: plugin.status };
 }
 
-/** Our plugin must be running on the host before a document RPC; a clear reason beats a transport error. */
-async function companionBlocker(client: DaemonClient): Promise<HostFailure | null> {
-  const own = (await client.listPlugins()).find((plugin) => plugin.id === OWN_PLUGIN_ID);
-  if (!own) return hostFailure("unsupported_capability", "companion_missing");
-  return own.enabled && own.status === "running" ? null : hostFailure("capability_disabled", "companion_disabled");
-}
-
 /** The plugin was not asked whether it accepts the values: validity stays unknown until a reload shows it. */
 function documentOutcome(revision: string): OkOutcome {
   return { status: "ok", revision, validity: "unknown", reloadSuggested: true };
@@ -117,14 +125,30 @@ async function updatePlugin(client: DaemonClient, pluginId: string, checkOnly: b
   return { ...base, updateOutcome: "updated" };
 }
 
+/**
+ * A `providers` patch only updates providers the target already has (the others come back as ignored `providers.<id>`).
+ * A patch that ends the connection (relay off) may fail the verifying re-read: that is `unverified`, not a failure.
+ */
+async function applyRow(client: DaemonClient, planned: MutableDaemonConfigPatch): Promise<ApplyOutcome> {
+  let patch = planned;
+  let missing: string[] = [];
+  if (planned.providers) {
+    const split = existingProvidersOnly(planned.providers, (await client.getDaemonConfig()).config.providers);
+    missing = split.missing.map((id) => `providers.${id}`);
+    if (Object.keys(split.providers).length === 0) return { status: "ignored", paths: missing };
+    patch = { providers: split.providers };
+  }
+  const verified = await patchConfigVerified(client, patch);
+  const ignored = [...verified.ignored, ...missing];
+  if (ignored.length > 0) return { status: "ignored", paths: ignored };
+  return verified.unverified ? { status: "ok", unverified: true } : { status: "ok" };
+}
+
 async function runOperation(client: DaemonClient, planned: Planned): Promise<ApplyOutcome> {
   const { item } = planned;
   switch (item.op) {
-    case "setRow": {
-      // A patch that ends the connection (relay off) may fail the verifying re-read; `mhm.grid.load` shows the real state.
-      const verified = await patchConfigVerified(client, planned.patch ?? {});
-      return verified.ignored.length > 0 ? { status: "ignored", paths: verified.ignored } : { status: "ok" };
-    }
+    case "setRow":
+      return applyRow(client, planned.patch ?? {});
     case "installPlugin":
       return pluginOutcome(await client.installPluginSource({ source: item.source, ref: item.ref }));
     case "removePlugin":
@@ -172,7 +196,7 @@ async function runItem(client: DaemonClient, features: readonly string[], planne
  * Applies one host's items in rank order over one connection. Slots are filled as items finish, so that a timeout or a
  * lost connection keeps what already happened and marks only the rest.
  */
-async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPolicy, timeoutMs: number, group: { index: number; planned: Planned }[], slots: (ApplyOutcome | undefined)[]) {
+async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPolicy, baseTimeoutMs: number, group: { index: number; planned: Planned }[], slots: (ApplyOutcome | undefined)[]) {
   const order = [...group].sort((a, b) => rank(a.planned.item) - rank(b.planned.item));
   const settle = (index: number, outcome: ApplyOutcome) => void (slots[index] ??= outcome);
   for (const entry of order) if (entry.planned.rejected) settle(entry.index, entry.planned.rejected);
@@ -182,7 +206,7 @@ async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPo
   const result = await callHost(client, host, {
     policy,
     requiredFeatures: [],
-    timeoutMs,
+    timeoutMs: hostTimeoutMs(group.map((entry) => entry.planned.item), baseTimeoutMs),
     run: async (hostClient, snapshot) => {
       for (const [position, entry] of order.entries()) {
         if (stopped) return;
@@ -201,10 +225,10 @@ async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPo
  * other in the order given by `rank`. The hub's own items run after all remote hosts finished, because switching plugins
  * off on the hub stops this plugin. A host failure marks that host's remaining items and never touches other hosts.
  * Items that need confirmation but lack it, and items that are malformed, are rejected without contacting a host.
+ * `baseTimeoutMs` is the per-host base of hostTimeoutMs.
  */
-export function applyItems(origin: OriginSession, home: string, policy: BrokerPolicy, items: ApplyItem[], timeoutMs = APPLY_TIMEOUT_MS): Promise<ApplyResult[]> {
+export function applyItems(origin: OriginSession, home: string, policy: BrokerPolicy, items: ApplyItem[], baseTimeoutMs = APPLY_BASE_TIMEOUT_MS): Promise<ApplyResult[]> {
   const slots: (ApplyOutcome | undefined)[] = items.map(() => undefined);
-  const entries = items.map((item, index) => ({ index, planned: plan(item) }));
   const results = (): ApplyResult[] =>
     items.map((item, index) => ({ id: item.id, host: item.host, op: item.op, outcome: slots[index] ?? failed(hostFailure("host_error")) }));
 
@@ -213,18 +237,22 @@ export function applyItems(origin: OriginSession, home: string, policy: BrokerPo
     home,
     policy,
     async (client, hosts) => {
-      const known = hosts.filter((host) => entries.some((entry) => entry.planned.item.host === host.id));
-      for (const entry of entries) {
-        if (!hosts.some((host) => host.id === entry.planned.item.host)) slots[entry.index] = failed(hostFailure("host_error", "unknown_host"));
-      }
-      const apply = (host: HostEntry) =>
-        applyHost(client, host, policy, timeoutMs, entries.filter((entry) => entry.planned.item.host === host.id), slots);
-      await Promise.all(known.filter((host) => !host.isHub).map(apply));
-      await Promise.all(known.filter((host) => host.isHub).map(apply));
+      const owners = items.map((item) => hosts.find((host) => isHost(host, item.host)));
+      owners.forEach((owner, index) => {
+        if (!owner) slots[index] = failed(hostFailure("host_error", "unknown_host"));
+      });
+      const groups = hosts.map((host) => ({
+        host,
+        group: items.flatMap((item, index) => (owners[index] === host ? [{ index, planned: plan(item, host) }] : [])),
+      }));
+      const known = groups.filter(({ group }) => group.length > 0);
+      const apply = ({ host, group }: (typeof groups)[number]) => applyHost(client, host, policy, baseTimeoutMs, group, slots);
+      await Promise.all(known.filter(({ host }) => !host.isHub).map(apply));
+      await Promise.all(known.filter(({ host }) => host.isHub).map(apply));
       return results();
     },
     (_hubId, failure) => {
-      for (const entry of entries) slots[entry.index] = failed(failure.error);
+      items.forEach((_item, index) => (slots[index] = failed(failure.error)));
       return results();
     },
   );

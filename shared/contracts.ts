@@ -79,10 +79,18 @@ export const rowCellSchema = z.object({
 });
 export type RowCell = z.infer<typeof rowCellSchema>;
 
-/** Portable plugin source: never an absolute path. `installSource` is what `installPlugin` accepts on another host; null when it cannot be installed elsewhere (directory, credentials in the remote). */
+/**
+ * Portable plugin source: never an absolute path. `installSource` (plus `ref`, if set) is what `installPlugin` accepts on
+ * another host; null when it cannot be installed elsewhere (directory, credentials in the remote).
+ * `pinned`: the source reproduces this host's version (npm `<pkg>@<version>`, git with `ref` = the installed commit).
+ * Registry ids cannot pin, so a registry install, and an npm or git source without a known version, installs the latest.
+ */
 export const pluginSourceSchema = z.object({
   kind: z.enum(["registry", "npm", "git", "directory"]),
   installSource: z.string().nullable(),
+  /** Git commit to pass as `installPlugin.ref`; null for every other kind or when unknown. */
+  ref: z.string().nullable(),
+  pinned: z.boolean(),
 });
 export type PluginSource = z.infer<typeof pluginSourceSchema>;
 
@@ -101,6 +109,7 @@ export type GridPlugin = z.infer<typeof gridPluginSchema>;
 
 /** State of our own plugin on a host. `disabled` also covers `pluginsEnabled=false`; it is not a failure. */
 export const companionStateSchema = z.discriminatedUnion("state", [
+  /** Our plugin is not installed; installing it is an `installPlugin` item with source `OWN_INSTALL_SOURCE` (shared/companion-contracts.ts). */
   z.object({ state: z.literal("missing") }),
   z.object({ state: z.literal("disabled") }),
   z.object({ state: z.literal("failed") }),
@@ -140,27 +149,52 @@ export const gridLoadRpc = defineRpc({
   }),
 });
 
-/** Reads one settings document from a host's companion (secrets masked) for the editor or a paste. */
+/**
+ * Reads one settings document from a host's companion (secrets masked) for the editor or a paste.
+ * `host` is a host's `id` or `registrationId` from `mhm.grid.load`, like `host` of an apply item.
+ */
 export const docReadRpc = defineRpc({
   name: "mhm.doc.read",
   input: brokerPolicySchema.extend(settingsReadRpc.input.shape).extend({ host: z.string().min(1) }),
   output: hostResultSchema(settingsReadRpc.output),
 });
 
-const itemBase = { id: z.string().min(1), host: z.string().min(1) };
+const itemBase = {
+  id: z.string().min(1),
+  /** A host's `id` or its `registrationId` from `mhm.grid.load` (the registration id also works before the hub ever reached the host). */
+  host: z.string().min(1),
+  /** Set once the UI showed the matching dialog; see the confirmation rule on `applyItemSchema`. */
+  confirmed: z.boolean().optional(),
+};
 
 /**
- * One staged change. `host` is the `id` from `mhm.grid.load`. `confirmed` must be true for installs and removals
- * (the UI shows the trust or destructive dialog first); an item without it is rejected with `confirmation_required`.
+ * One staged change. Confirmation rule: without `confirmed: true`
+ * - installs and removals are rejected with `confirmation_required` (trust or destructive dialog);
+ * - items that can cut the hub off from a host are rejected with `lockout_confirmation_required`: `relay` set to false on
+ *   a host the hub reaches over a relay link, `pen` (pluginsEnabled) set to false on any host, and removing or disabling
+ *   this plugin (`OWN_PLUGIN_ID`) on a remote host. Removing or disabling this plugin on the hub itself is always
+ *   `invalid_item` with detail `self_target`.
+ * An install whose source carries URL credentials is `invalid_item` with detail `credentials_in_source`.
  * `pluginId` on an install only links later items to it (see the dependency rule in server/rpc/apply.ts).
  */
 export const applyItemSchema = z.discriminatedUnion("op", [
-  z.object({ ...itemBase, op: z.literal("setRow"), rowId: z.string(), value: z.json() }),
-  z.object({ ...itemBase, op: z.literal("installPlugin"), source: z.string().min(1), ref: z.string().optional(), pluginId: z.string().optional(), confirmed: z.boolean().optional() }),
-  z.object({ ...itemBase, op: z.literal("removePlugin"), pluginId: z.string().min(1), confirmed: z.boolean().optional() }),
+  z.object({
+    ...itemBase,
+    op: z.literal("setRow"),
+    rowId: z.string(),
+    /**
+     * New value of the row. A `<masked>` placeholder is rejected (`masked_value`), except inside `prov` entries: there a
+     * key whose value is `<masked>` is dropped, so the target keeps its own value for it. `prov` updates providers the
+     * target already has, never adds or deletes one; ids the target lacks come back as `ignored` (`providers.<id>`).
+     */
+    value: z.json(),
+  }),
+  z.object({ ...itemBase, op: z.literal("installPlugin"), source: z.string().min(1), ref: z.string().optional(), pluginId: z.string().optional() }),
+  z.object({ ...itemBase, op: z.literal("removePlugin"), pluginId: z.string().min(1) }),
   z.object({ ...itemBase, op: z.literal("setPluginEnabled"), pluginId: z.string().min(1), enabled: z.boolean() }),
   /** `checkOnly` previews the update and changes nothing. */
   z.object({ ...itemBase, op: z.literal("updatePlugin"), pluginId: z.string().min(1), checkOnly: z.boolean().optional() }),
+  /** `values`: a `<masked>` placeholder keeps the value stored at the same path on the target; without one there the write fails (`invalid_input`). */
   settingsWriteRpc.input.extend({ ...itemBase, op: z.literal("writeSettingsDoc") }),
   settingsRestoreRpc.input.extend({ ...itemBase, op: z.literal("restoreSettingsDoc") }),
   z.object({ ...itemBase, op: z.literal("reloadPlugin"), pluginId: z.string().min(1) }),
@@ -184,6 +218,8 @@ export const applyOutcomeSchema = z.discriminatedUnion("status", [
     validity: z.literal("unknown").optional(),
     /** True when a `reloadPlugin` item would make the plugin pick the document up. */
     reloadSuggested: z.boolean().optional(),
+    /** `setRow`: the patch was accepted but the re-read that checks it failed (e.g. relay off dropped the connection). The next `mhm.grid.load` shows the real state. */
+    unverified: z.boolean().optional(),
   }),
   /** The daemon took the call but did not apply these config paths (it silently ignores unknown keys). */
   z.object({ status: z.literal("ignored"), paths: z.array(z.string()) }),
