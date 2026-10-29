@@ -37,6 +37,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   routed.mockReset();
   originConnect.mockReset();
@@ -62,10 +63,10 @@ describe("callHost", () => {
 
   it("returns the value and snapshot, and disposes the routed client", async () => {
     const target = fakeClient({ info: serverInfo("srv_W", "0.13.2") });
-    routed.mockResolvedValue(target.client);
+    routed.mockResolvedValue(target.routed);
     const result = await callHost(origin.client, remote, request);
     expect(result).toMatchObject({ ok: true, value: "value", snapshot: { serverId: "srv_W", version: "0.13.2" } });
-    expect(routed).toHaveBeenCalledWith(origin.client, "srv_W");
+    expect(routed).toHaveBeenCalledWith(origin.client, "srv_W", expect.any(AbortSignal));
     expect(target.close).toHaveBeenCalledTimes(1);
   });
 
@@ -82,13 +83,13 @@ describe("callHost", () => {
     expect(await callHost(origin.client, unverified, request)).toMatchObject({ ok: false, error: { code: "insecure_link" } });
     expect(routed).not.toHaveBeenCalled();
 
-    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).client);
+    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).routed);
     const allowed = await callHost(origin.client, unverified, { ...request, policy: { ...policy, insecureLinkRegistrationIds: ["reg_W"] } });
     expect(allowed.ok).toBe(true);
   });
 
   it("keys the insecure-link opt-in by registration id, which survives the host id flipping to the server id", async () => {
-    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).client);
+    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).routed);
     const optIn = { ...request, policy: { ...policy, insecureLinkRegistrationIds: ["reg_W"] } };
     const neverReached: HostEntry = { ...remote, id: "reg_W", link: "tcp-plain" };
     const reached: HostEntry = { ...remote, id: "srv_W", link: "tcp-plain" };
@@ -99,7 +100,7 @@ describe("callHost", () => {
   });
 
   it.each(["relay", "ssh", "loopback", "tls"] as const)("allows %s links without an opt-out", async (link) => {
-    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).client);
+    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).routed);
     expect((await callHost(origin.client, { ...remote, link }, request)).ok).toBe(true);
   });
 
@@ -123,7 +124,7 @@ describe("callHost", () => {
 
   it("disposes the routed client when a gate fails", async () => {
     const target = fakeClient({ info: serverInfo("srv_W", "0.12.0") });
-    routed.mockResolvedValue(target.client);
+    routed.mockResolvedValue(target.routed);
     expect(await callHost(origin.client, remote, request)).toMatchObject({ ok: false, error: { code: "below_minimum" }, snapshot: { version: "0.12.0" } });
     expect(target.close).toHaveBeenCalledTimes(1);
   });
@@ -132,18 +133,18 @@ describe("callHost", () => {
     ["0.14.0-beta.2", [], "prerelease_blocked"],
     ["0.13.2", ["pluginManagement"], "unsupported_capability"],
   ] as const)("gates %s with %j -> %s", async (version, features, code) => {
-    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", version, []) }).client);
+    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", version, []) }).routed);
     expect(await callHost(origin.client, remote, { ...request, requiredFeatures: features })).toMatchObject({ ok: false, error: { code } });
   });
 
   it("reports host_offline when the routed client has no server_info", async () => {
-    routed.mockResolvedValue(fakeClient({ info: null }).client);
+    routed.mockResolvedValue(fakeClient({ info: null }).routed);
     expect(await callHost(origin.client, remote, request)).toMatchObject({ ok: false, error: { code: "host_offline" } });
   });
 
   it("disposes the routed client when the call throws", async () => {
     const target = fakeClient({ info: serverInfo("srv_W", "0.13.2") });
-    routed.mockResolvedValue(target.client);
+    routed.mockResolvedValue(target.routed);
     const run = async () => {
       throw new Error(`failed with password=${SECRETS.password}`);
     };
@@ -153,16 +154,34 @@ describe("callHost", () => {
     expectNoSecrets(result);
   });
 
-  it("times out as host_offline and still disposes the client once the call ends", async () => {
+  // A routed connect or call that never settles on its own.
+  const pending = () => new Promise<never>(() => undefined);
+
+  it("times out as host_offline and closes the routed client right away, while the call still runs", async () => {
+    vi.useFakeTimers();
     const target = fakeClient({ info: serverInfo("srv_W", "0.13.2") });
-    routed.mockResolvedValue(target.client);
-    let finish: () => void = () => undefined;
-    const run = () => new Promise<string>((resolve) => (finish = () => resolve("late")));
-    const result = await callHost(origin.client, remote, { ...request, timeoutMs: 20, run });
-    expect(result).toMatchObject({ ok: false, error: { code: "host_offline", detail: "timeout" } });
-    expect(target.close).not.toHaveBeenCalled();
-    finish();
-    await vi.waitFor(() => expect(target.close).toHaveBeenCalledTimes(1));
+    routed.mockResolvedValue(target.routed);
+    const result = callHost(origin.client, remote, { ...request, timeoutMs: 20, run: pending });
+    await vi.advanceTimersByTimeAsync(20);
+    expect(await result).toMatchObject({ ok: false, error: { code: "host_offline", detail: "timeout" } });
+    expect(target.close).toHaveBeenCalled();
+  });
+
+  it("aborts a routed connect that is still pending at the timeout", async () => {
+    vi.useFakeTimers();
+    routed.mockImplementation(pending);
+    const result = callHost(origin.client, remote, { ...request, timeoutMs: 20 });
+    await vi.advanceTimersByTimeAsync(20);
+    expect(await result).toMatchObject({ ok: false, error: { code: "host_offline", detail: "timeout" } });
+    expect(routed.mock.calls[0][2]?.aborted).toBe(true);
+  });
+
+  it("clears the timeout of a call that finished in time, so nothing is aborted later", async () => {
+    vi.useFakeTimers();
+    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).routed);
+    expect((await callHost(origin.client, remote, { ...request, timeoutMs: 20 })).ok).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(routed.mock.calls[0][2]?.aborted).toBe(false);
   });
 });
 
@@ -204,7 +223,7 @@ describe("hostsOverview", () => {
       srv_L: fakeClient({ info: serverInfo("srv_L", "0.13.0") }),
       srv_beta: fakeClient({ info: serverInfo("srv_beta", "0.14.0-beta.2") }),
     };
-    routed.mockImplementation(async (_origin, serverId) => targets[serverId].client);
+    routed.mockImplementation(async (_origin, serverId) => targets[serverId].routed);
 
     const hosts = await hostsOverview(home, policy);
 

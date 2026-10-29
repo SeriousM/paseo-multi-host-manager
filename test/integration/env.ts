@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { connectOriginClient, connectRoutedClient } from "../../server/broker/daemon-client";
-import type { DaemonClient } from "../../server/broker/daemon-client";
+import type { DaemonClient, RoutedClient } from "../../server/broker/daemon-client";
 import { paseoHome, readHubAddress, readLocalCredential } from "../../server/broker/origin";
 
 export const PLUGIN_ID = "paseo-multi-host-manager";
@@ -51,7 +51,7 @@ export async function connectHub(): Promise<DaemonClient> {
   return connectOriginClient(address.listen, () => readLocalCredential(home));
 }
 
-export function routeTo(hub: DaemonClient, key: "W" | "L"): Promise<DaemonClient> {
+export function routeTo(hub: DaemonClient, key: "W" | "L"): Promise<RoutedClient> {
   const serverId = readState().hubHosts.find((h) => h.key === key)?.serverId;
   if (!serverId) throw new Error(`host ${key} has no serverId`);
   return connectRoutedClient(hub, serverId);

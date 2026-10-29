@@ -9,7 +9,7 @@ import {
 } from "../../shared/companion-contracts";
 import { patchConfigVerified } from "../../server/broker/config-patch";
 import { MASK_PLACEHOLDER } from "../../shared/mask";
-import type { DaemonClient } from "../../server/broker/daemon-client";
+import type { DaemonClient, RoutedClient } from "../../server/broker/daemon-client";
 import { COMPANION_SETTINGS, connectHub, enabled, hostFiles, PLUGIN_ID, routeTo, setConsent } from "./env";
 import type { HostFiles } from "./env";
 
@@ -24,6 +24,7 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
   if (!enabled) return it.skip("needs MHM_TESTENV=1");
 
   let hub: DaemonClient;
+  let routed: RoutedClient;
   let host: DaemonClient;
   const files: HostFiles = hostFiles[key];
   let originalPrompt = "";
@@ -33,7 +34,8 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
 
   beforeAll(async () => {
     hub = await connectHub();
-    host = await routeTo(hub, key);
+    routed = await routeTo(hub, key);
+    host = routed.client;
     originalPrompt = (await host.getDaemonConfig()).config.appendSystemPrompt ?? "";
     setConsent(files, false);
     files.remove(`${DUMMY_FILE}.bak`);
@@ -44,7 +46,7 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     files.remove(DUMMY_FILE);
     files.remove(`${DUMMY_FILE}.bak`);
     setConsent(files, false);
-    await host?.close();
+    await routed?.close();
     await hub?.close();
   });
 

@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import type { Mock } from "vitest";
-import type { DaemonClient, HostDirectory, HostSummary, MutableDaemonConfig, ServerInfoStatusPayload } from "../../server/broker/daemon-client";
+import type { DaemonClient, HostDirectory, HostSummary, MutableDaemonConfig, RoutedClient, ServerInfoStatusPayload } from "../../server/broker/daemon-client";
 
 /** Strings that must never show up in results or logs. */
 export const SECRETS = {
@@ -41,6 +41,8 @@ export function savedHost(serverId: string | null, targetDescription: string, ov
 
 export interface FakeClient {
   client: DaemonClient;
+  /** The client as connectRoutedClient returns it; its close is `close`. */
+  routed: RoutedClient;
   close: Mock;
   patchDaemonConfig: Mock;
 }
@@ -58,7 +60,8 @@ export function fakeClient(options: { info: ServerInfoStatusPayload | null; dire
       return options.directory ?? { self: { serverId: options.info?.serverId ?? "srv_hub", label: "hub" }, hosts: [] };
     },
   };
-  return { client: fake as unknown as DaemonClient, close, patchDaemonConfig };
+  const client = fake as unknown as DaemonClient;
+  return { client, routed: { client, close }, close, patchDaemonConfig };
 }
 
 export function codedError(message: string, code: string): Error {

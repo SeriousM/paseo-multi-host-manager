@@ -1,8 +1,8 @@
-import { setTimeout as delay } from "node:timers/promises";
+import { once } from "node:events";
 import type { BrokerPolicy, CapabilitySnapshot, HostResult } from "../../shared/contracts";
 import { capabilitySnapshot, checkGates } from "./capabilities";
 import { connectRoutedClient } from "./daemon-client";
-import type { DaemonClient, FeatureName } from "./daemon-client";
+import type { DaemonClient, FeatureName, RoutedClient } from "./daemon-client";
 import { failureFromError, hostFailure } from "./failures";
 import type { HostEntry } from "./hosts";
 
@@ -27,24 +27,28 @@ async function runGated<T>(client: DaemonClient, request: HostRequest<T>): Promi
   }
 }
 
-async function connectAndRun<T>(origin: DaemonClient, host: HostEntry, request: HostRequest<T>): Promise<HostResult<T>> {
+async function connectAndRun<T>(origin: DaemonClient, host: HostEntry, request: HostRequest<T>, timeout: AbortSignal): Promise<HostResult<T>> {
   if (host.isHub) return runGated(origin, request);
-  let routed: DaemonClient;
+  let routed: RoutedClient;
   try {
-    routed = await connectRoutedClient(origin, host.id);
+    routed = await connectRoutedClient(origin, host.id, timeout);
   } catch (error) {
     return { ok: false, error: failureFromError(error, "host_offline") };
   }
+  // On timeout the route closes at once, which also fails the call that is still running on it.
+  const onTimeout = () => void routed.close();
+  timeout.addEventListener("abort", onTimeout, { once: true });
   try {
-    return await runGated(routed, request);
+    return await runGated(routed.client, request);
   } finally {
-    await routed.close().catch(() => undefined);
+    timeout.removeEventListener("abort", onTimeout);
+    await routed.close();
   }
 }
 
 /**
- * Calls one host through the hub's origin client. The routed client lives only for this call.
- * On timeout the result is `host_offline`; a still-running call is torn down when the origin closes.
+ * Calls one host through the hub's origin client. The routed client and its route live only for this call.
+ * On timeout the result is `host_offline`, and the routed client and route are closed right away.
  */
 export async function callHost<T>(origin: DaemonClient, host: HostEntry, request: HostRequest<T>): Promise<HostResult<T>> {
   const unverifiedLink = host.link === "tcp-plain" || host.link === "unknown";
@@ -53,13 +57,12 @@ export async function callHost<T>(origin: DaemonClient, host: HostEntry, request
     return { ok: false, error: hostFailure("insecure_link") };
   }
   if (host.unavailable) return { ok: false, error: host.unavailable };
-  const timedOut: HostResult<T> = { ok: false, error: hostFailure("host_offline", "timeout") };
-  const cancel = new AbortController();
-  const timeout = delay(request.timeoutMs, timedOut, { signal: cancel.signal });
-  timeout.catch(() => undefined);
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), request.timeoutMs);
+  const timedOut = once(timeout.signal, "abort").then((): HostResult<T> => ({ ok: false, error: hostFailure("host_offline", "timeout") }));
   try {
-    return await Promise.race([connectAndRun(origin, host, request), timeout]);
+    return await Promise.race([connectAndRun(origin, host, request, timeout.signal), timedOut]);
   } finally {
-    cancel.abort();
+    clearTimeout(timer);
   }
 }
