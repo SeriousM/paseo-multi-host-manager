@@ -165,5 +165,15 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
       expect(files.read(COMPANION_SETTINGS)).toBe(consentBefore);
       await expect(host.invokePluginRpc(PLUGIN_ID, settingsReadRpc.name, { pluginId: "..", settingsId: "x" })).rejects.toThrow();
     });
+
+    it("refuses the own consent document through case and trailing-dot aliases", async () => {
+      const consentBefore = files.read(COMPANION_SETTINGS);
+      const values = { allowPluginSettingsWrites: true };
+      const cased = await call(settingsWriteRpc, { pluginId: PLUGIN_ID.toUpperCase(), settingsId: "companion", expectedRevision: "missing", version: 1, values });
+      expect(cased).toMatchObject({ ok: false, code: "not_allowed" });
+      const dotted = { pluginId: `${PLUGIN_ID}.`, settingsId: "companion", expectedRevision: "missing", version: 1, values };
+      await expect(host.invokePluginRpc(PLUGIN_ID, settingsWriteRpc.name, dotted)).rejects.toThrow();
+      expect(files.read(COMPANION_SETTINGS)).toBe(consentBefore);
+    });
   });
 });
