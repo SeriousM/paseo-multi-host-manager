@@ -1,7 +1,7 @@
 import type { ApplyResult } from "../../shared/contracts";
 import { clipFromCell, pasteTargetsInputs, planPaste } from "./clipboard";
 import { orderHosts } from "./grid-model";
-import { confirmItems, itemOnHost, markApplying, stageItems, withApplyError, withResults, withWrittenDocs } from "./staging";
+import { confirmItems, itemOnHost, markApplying, stageItems, withApplyError, withResults, withUpdateChecks, withWrittenDocs } from "./staging";
 import type { CellRef, ClipboardEntry, Confirmation, DialogRequest, GridHost, MhmState, StageInput, ViewMode } from "./types";
 
 export type MhmAction =
@@ -23,10 +23,14 @@ export type MhmAction =
   | { type: "discardAll" }
   | { type: "confirm"; ids: string[]; kind: Confirmation }
   | { type: "applyStarted" }
+  /** Results of the items that settled so far while the apply job runs. */
+  | { type: "applyProgress"; results: ApplyResult[] }
   | { type: "applyFinished"; results: ApplyResult[] }
   | { type: "applyFailed"; message: string }
   /** Drops the applied items; failed, skipped, ignored and unknown ones stay for Retry or removal. */
   | { type: "clearApplied" }
+  /** Forgets the "update available" results (Refresh: the user asks for the current state). */
+  | { type: "clearUpdateChecks" }
   /** Hides the "written, validity unknown" marker of one document (the user checked the plugin himself). */
   | { type: "dismissWritten"; host: string; pluginId: string; settingsId: string }
   | { type: "openDialog"; dialog: DialogRequest }
@@ -41,14 +45,16 @@ export const INITIAL_STATE: MhmState = {
   pasteTargets: [],
   staged: [],
   writtenDocs: [],
+  updateChecks: [],
   applying: false,
   dialog: null,
   view: "auto",
   compare: { into: null, from: null },
 };
 
+/** The queue is frozen while an apply runs: results are merged by item id, a changed item must not get an old result. */
 function withStaged(state: MhmState, inputs: readonly StageInput[]): MhmState {
-  return { ...state, staged: stageItems(state.staged, state.hosts, inputs) };
+  return state.applying ? state : { ...state, staged: stageItems(state.staged, state.hosts, inputs) };
 }
 
 /** Pure state transitions of the screen. RPCs run in hooks.ts and report back through `gridLoaded` and `apply*`. */
@@ -95,6 +101,7 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
       return plan.ok ? withStaged(state, plan.inputs) : state;
     }
     case "pasteTargets":
+      if (state.applying) return state;
       if (state.clipboard?.kind === "doc") return { ...state, pasteTargets: [] };
       return { ...withStaged(state, pasteTargetsInputs(state)), pasteTargets: [] };
     case "stage":
@@ -104,15 +111,25 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
     case "discardAll":
       return state.applying ? state : { ...state, staged: [] };
     case "confirm":
-      return { ...state, staged: confirmItems(state.staged, action.ids, action.kind) };
+      return state.applying ? state : { ...state, staged: confirmItems(state.staged, action.ids, action.kind) };
     case "applyStarted":
-      return { ...state, applying: true, staged: markApplying(state.staged) };
+      return state.applying ? state : { ...state, applying: true, staged: markApplying(state.staged) };
+    case "applyProgress":
+      return state.applying ? { ...state, staged: withResults(state.staged, action.results) } : state;
     case "applyFinished":
-      return { ...state, applying: false, staged: withResults(state.staged, action.results), writtenDocs: withWrittenDocs(state.writtenDocs, state.staged, action.results) };
+      return {
+        ...state,
+        applying: false,
+        staged: withResults(state.staged, action.results),
+        writtenDocs: withWrittenDocs(state.writtenDocs, state.staged, action.results),
+        updateChecks: withUpdateChecks(state.updateChecks, state.staged, state.hosts, action.results),
+      };
     case "applyFailed":
       return { ...state, applying: false, staged: withApplyError(state.staged, state.hosts, action.message) };
     case "clearApplied":
-      return { ...state, staged: state.staged.filter((entry) => entry.status !== "ok") };
+      return state.applying ? state : { ...state, staged: state.staged.filter((entry) => entry.status !== "ok") };
+    case "clearUpdateChecks":
+      return { ...state, updateChecks: [] };
     case "dismissWritten":
       return {
         ...state,

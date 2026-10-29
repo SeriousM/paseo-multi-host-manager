@@ -1,6 +1,6 @@
 import type { ApplyItem, ApplyResult, BrokerPolicy } from "../../shared/contracts";
 import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
-import type { Confirmation, DialogRequest, GridHost, StagedItem, StagedStatus, StageInput, WrittenDoc } from "./types";
+import type { Confirmation, DialogRequest, GridHost, StagedItem, StagedStatus, StageInput, UpdateCheck, WrittenDoc } from "./types";
 
 /**
  * How staged items name their host. Saved hosts by registration id: a host's `id` flips from the registration id to
@@ -120,12 +120,29 @@ export function markApplying(staged: readonly StagedItem[]): StagedItem[] {
 
 const OUTCOME_STATUS: Record<ApplyResult["outcome"]["status"], StagedStatus> = { ok: "ok", ignored: "ignored", failed: "failed", skipped: "skipped" };
 
-/** Merges `mhm.apply` results by item id. Items the response does not mention keep their status. */
+/**
+ * Merges apply results by item id into the items that are being applied. Items the results do not mention keep their
+ * status, and an item that is not applying (already settled, or not sent) never takes a result.
+ */
 export function withResults(staged: readonly StagedItem[], results: readonly ApplyResult[]): StagedItem[] {
   return staged.map((entry) => {
-    const result = results.find((candidate) => candidate.id === entry.item.id);
+    const result = entry.status === "applying" ? results.find((candidate) => candidate.id === entry.item.id) : undefined;
     return result ? { ...entry, status: OUTCOME_STATUS[result.outcome.status], outcome: result.outcome } : entry;
   });
+}
+
+/** Records the plugins a check-only update found an update for, with the version the host had at the check. */
+export function withUpdateChecks(checks: readonly UpdateCheck[], staged: readonly StagedItem[], hosts: readonly GridHost[], results: readonly ApplyResult[]): UpdateCheck[] {
+  const next = [...checks];
+  for (const result of results) {
+    const item = staged.find((entry) => entry.item.id === result.id)?.item;
+    if (item?.op !== "updatePlugin" || !item.checkOnly || result.outcome.status !== "ok" || result.outcome.updateOutcome !== "update") continue;
+    const host = hosts.find((candidate) => itemOnHost(item.host, candidate));
+    const version = (host?.result.ok ? host.result.value.plugins.find((plugin) => plugin.id === item.pluginId)?.version : null) ?? null;
+    const others = next.filter((check) => !(check.host === item.host && check.pluginId === item.pluginId));
+    next.splice(0, next.length, ...others, { host: item.host, pluginId: item.pluginId, version });
+  }
+  return next;
 }
 
 /**

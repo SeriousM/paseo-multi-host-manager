@@ -57,6 +57,17 @@ export interface WrittenDoc {
   backedUp: boolean;
 }
 
+/**
+ * A plugin a check-only update found an update for. Shown on the plugin cell while the host still reports the version
+ * it had at the check; Refresh forgets it.
+ */
+export interface UpdateCheck {
+  /** The apply item's host reference. */
+  host: string;
+  pluginId: string;
+  version: string | null;
+}
+
 /** A dialog the screen shows; 8b/8c own the components, the state only says which one is open. */
 export type DialogRequest =
   /** Trust confirmation for the staged installs (item ids). */
@@ -86,6 +97,7 @@ export interface MhmState {
   pasteTargets: string[];
   staged: StagedItem[];
   writtenDocs: WrittenDoc[];
+  updateChecks: UpdateCheck[];
   applying: boolean;
   dialog: DialogRequest | null;
   view: ViewMode;

@@ -349,6 +349,44 @@ describe("staging queue", () => {
     expect(plain.staged[0]).toMatchObject({ status: "failed", outcome: { status: "failed", error: { message: "timeout" } } });
   });
 
+  it("freezes staging while applying and merges results only into items being applied", () => {
+    const mcp = { op: "setRow" as const, host: "reg-a", rowId: "mcp", value: false };
+    let state = run([hub, host("a")], { type: "stage", inputs: [mcp] }, { type: "applyStarted" });
+    const frozen = [
+      mhmReducer(state, { type: "stage", inputs: [{ ...mcp, value: true }, { op: "setRow", host: "reg-a", rowId: "sys", value: "x" }] }),
+      mhmReducer(mhmReducer(state, { type: "copy", ref: { kind: "row", rowId: "mcp", hostId: "hub" } }), { type: "paste", hostId: "a" }),
+      mhmReducer(state, { type: "clearApplied" }),
+      mhmReducer(state, { type: "confirm", ids: ["reg-a/row:mcp"], kind: "lockout" }),
+    ];
+    for (const next of frozen) expect(next.staged).toEqual(state.staged);
+    const result: ApplyResult = { id: "reg-a/row:mcp", host: "reg-a", op: "setRow", outcome: { status: "ok" } };
+    state = mhmReducer(state, { type: "applyProgress", results: [result] });
+    expect(state).toMatchObject({ applying: true, staged: [{ status: "ok" }] });
+    state = mhmReducer(state, { type: "applyFinished", results: [result] });
+    // A replaced (pending) item with the same id must not inherit a result from an earlier batch.
+    state = mhmReducer(state, { type: "stage", inputs: [{ ...mcp, value: true }] });
+    state = mhmReducer(state, { type: "applyProgress", results: [result] });
+    expect(state.staged[0]).toMatchObject({ status: "pending", outcome: null });
+  });
+
+  it("keeps an update found by a check on the plugin cell until the version changes or Refresh", () => {
+    const keep = plugin("keep", { version: "1.0.0" });
+    const withKeep = host("a", { data: data({ plugins: [keep] }) });
+    let state = run([hub, withKeep], { type: "stage", inputs: [{ op: "updatePlugin", host: "reg-a", pluginId: "keep", checkOnly: true }] }, { type: "applyStarted" });
+    state = mhmReducer(state, { type: "applyFinished", results: [{ id: "reg-a/plugin:keep:version", host: "reg-a", op: "updatePlugin", outcome: { status: "ok", pluginId: "keep", updateOutcome: "update" } }] });
+    state = mhmReducer(mhmReducer(state, { type: "clearApplied" }), { type: "gridLoaded", hosts: [hub, withKeep] });
+    const row = () => {
+      const found = pluginRows(state.hosts).find((candidate) => candidate.id === "keep");
+      if (!found) throw new Error("no keep row");
+      return found;
+    };
+    expect(pluginCellView(state, row(), "a")).toMatchObject({ tone: "attention", detail: "update available" });
+    const updated = mhmReducer(state, { type: "gridLoaded", hosts: [hub, host("a", { data: data({ plugins: [{ ...keep, version: "1.1.0" }] }) })] });
+    expect(pluginCellView(updated, pluginRows(updated.hosts)[1], "a").detail).not.toContain("update available");
+    state = mhmReducer(state, { type: "clearUpdateChecks" });
+    expect(pluginCellView(state, row(), "a").tone).toBe("plain");
+  });
+
   it("does not change the queue while applying", () => {
     const state = run([hub, host("a")], { type: "stage", inputs: [relayOff] }, { type: "applyStarted" }, { type: "unstage", id: "reg-a/row:relay" }, { type: "discardAll" });
     expect(state.staged).toHaveLength(1);

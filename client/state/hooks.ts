@@ -2,13 +2,19 @@ import { useRpc, useSettings } from "@getpaseo/plugin/client";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { Dispatch } from "react";
-import { applyRpc, docReadRpc, gridLoadRpc } from "../../shared/contracts";
+import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc } from "../../shared/contracts";
 import type { BrokerPolicy } from "../../shared/contracts";
 import { DEFAULT_POLICY, brokerSettings } from "../../shared/policy";
 import { INITIAL_STATE, mhmReducer } from "./reducer";
 import type { MhmAction } from "./reducer";
 import { applyInput, nextConfirmation, SENDABLE } from "./staging";
 import type { Confirmation, MhmState } from "./types";
+
+/**
+ * How often a running apply is polled. A plugin RPC has 30 s on the daemon, less than an install may take, so Apply
+ * starts a job on the hub (`mhm.apply.start`) and polls it (`mhm.apply.poll`) instead of waiting on one call.
+ */
+const APPLY_POLL_MS = 1_000;
 
 /** Everything the screen's components get: state, dispatch, and the RPC-backed commands. */
 export interface MhmController {
@@ -36,7 +42,8 @@ function message(error: unknown): string {
 /** `hostId` is the host the screen is bound to (the hub); the query cache is keyed by it. */
 export function useMhm(hostId: string): MhmController {
   const loadGrid = useRpc(gridLoadRpc);
-  const applyItems = useRpc(applyRpc);
+  const startApply = useRpc(applyStartRpc);
+  const pollApply = useRpc(applyPollRpc);
   const readDoc = useRpc(docReadRpc);
   const settings = useSettings(brokerSettings);
   const policy = settings.status === "ready" ? settings.values : DEFAULT_POLICY;
@@ -66,13 +73,24 @@ export function useMhm(hostId: string): MhmController {
     }
     dispatch({ type: "applyStarted" });
     try {
-      const { results } = await applyItems(applyInput(state.staged, policy));
-      dispatch({ type: "applyFinished", results });
+      const started = await startApply(applyInput(state.staged, policy));
+      if (!started.ok) throw new Error("Another apply is still running on the hub. Wait for it, then retry.");
+      for (;;) {
+        // Executor form on purpose: Promise.withResolvers is ES2024 and not on every React Native engine.
+        await new Promise<void>((resolve) => setTimeout(resolve, APPLY_POLL_MS));
+        const job = await pollApply({ jobId: started.jobId });
+        if (job.state === "unknown") throw new Error("The hub lost this apply (its plugin restarted). Reload the grid to see what changed.");
+        if (job.state === "done") {
+          dispatch({ type: "applyFinished", results: job.results });
+          break;
+        }
+        dispatch({ type: "applyProgress", results: job.results });
+      }
     } catch (error) {
       dispatch({ type: "applyFailed", message: message(error) });
     }
     void refetch();
-  }, [applyItems, policy, refetch, state.applying, state.staged]);
+  }, [policy, pollApply, refetch, startApply, state.applying, state.staged]);
 
   // `apply` closes over the queue of its render, so the continuation runs after the confirmation is in the state.
   const continueApply = useRef(false);

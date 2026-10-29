@@ -35,7 +35,12 @@ export function Toolbar({ theme, controller }: Pick<MhmSurfaceProps, "theme" | "
         ))}
       </View>
       <Button theme={theme} label="Install plugin..." disabled={state.hosts.length === 0} onPress={() => dispatch({ type: "openDialog", dialog: { kind: "install", pluginId: "", hostId: null } })} />
-      <Button theme={theme} label={grid.refreshing ? "Refreshing..." : "Refresh"} disabled={grid.refreshing} onPress={grid.refresh} />
+      <Button theme={theme} label={grid.refreshing ? "Refreshing..." : "Refresh"} disabled={grid.refreshing}
+        onPress={() => {
+          dispatch({ type: "clearUpdateChecks" });
+          grid.refresh();
+        }}
+      />
     </View>
   );
 }

@@ -295,7 +295,13 @@ export function pluginCellView(state: MhmState, row: PluginRow, hostId: string):
     clip?.kind === "plugin" && clip.pluginId === row.id && clip.sourceHost !== hostId && (!current || current.version !== clip.plugin.version || current.enabled !== clip.plugin.enabled);
   const status = current ? `${current.status} - ${current.source.kind}` : null;
   const written = host ? state.writtenDocs.filter((doc) => doc.pluginId === row.id && itemOnHost(doc.host, host)) : [];
-  const attention = !staged && written.length > 0 ? `settings written (${written.map((doc) => doc.settingsId).join(", ")}), validity unknown - reload the plugin` : null;
+  // A check result holds while the host still reports the version it had at the check.
+  const update = host && current ? state.updateChecks.some((check) => check.pluginId === row.id && itemOnHost(check.host, host) && check.version === current.version) : false;
+  const notes = [
+    ...(update ? ["update available"] : []),
+    ...(written.length > 0 ? [`settings written (${written.map((doc) => doc.settingsId).join(", ")}), validity unknown - reload the plugin`] : []),
+  ];
+  const attention = !staged && notes.length > 0 ? notes.join("; ") : null;
   return {
     ...base,
     text: stagedText ?? (current ? formatPlugin(current) : "not installed"),

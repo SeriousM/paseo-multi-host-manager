@@ -137,7 +137,7 @@ describe("staging drawer view", () => {
     let state = stageAll();
     const [relay, mcp, pen, install] = state.staged.map((entry) => entry.item.id);
     expect(statusView(state.staged[0], state.staged, state.hosts)).toMatchObject({ label: "staged", detail: "Apply asks for lockout confirmation first" });
-    state = mhmReducer(state, {
+    state = mhmReducer(mhmReducer(state, { type: "applyStarted" }), {
       type: "applyFinished",
       results: [
         { id: relay, host: "reg-a", op: "setRow", outcome: { status: "ok", unverified: true } },
@@ -156,7 +156,7 @@ describe("staging drawer view", () => {
   it("reports update checks and lost results", () => {
     const state = run([hub, host("a")], { type: "stage", inputs: [{ op: "updatePlugin", host: "reg-a", pluginId: "x", checkOnly: true }] });
     const id = state.staged[0].item.id;
-    const done = mhmReducer(state, { type: "applyFinished", results: [{ id, host: "reg-a", op: "updatePlugin", outcome: { status: "ok", pluginId: "x", updateOutcome: "update" } }] });
+    const done = mhmReducer(mhmReducer(state, { type: "applyStarted" }), { type: "applyFinished", results: [{ id, host: "reg-a", op: "updatePlugin", outcome: { status: "ok", pluginId: "x", updateOutcome: "update" } }] });
     expect(statusView(done.staged[0], done.staged, done.hosts)).toMatchObject({ label: "ok", detail: "an update is available (nothing was changed)" });
   });
 
@@ -164,7 +164,7 @@ describe("staging drawer view", () => {
     const state = stageAll();
     expect(summarize(state.staged, false)).toMatchObject({ total: 5, pending: 5, outstanding: 5, applyLabel: "Apply (5)" });
     expect(summarize(state.staged, true).applyLabel).toBe("Applying...");
-    const failed = mhmReducer(state, {
+    const failed = mhmReducer(mhmReducer(state, { type: "applyStarted" }), {
       type: "applyFinished",
       results: state.staged.map((entry) => ({ id: entry.item.id, host: entry.item.host, op: entry.item.op, outcome: { status: "failed" as const, error: { code: "host_error" as const, message: "x" } } })),
     });
