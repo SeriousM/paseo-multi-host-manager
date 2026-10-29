@@ -39,7 +39,11 @@ function childOf(existing: Json | undefined, key: string | number): Json | undef
   return Object.hasOwn(existing, key) ? existing[key] : undefined;
 }
 
-/** Replaces every MASK_PLACEHOLDER in `incoming` with the value at the same path in `existing`. */
+/**
+ * Replaces every MASK_PLACEHOLDER in `incoming` with the value at the same path in `existing`.
+ * A value that literally is "<masked>" is always taken as the placeholder, never stored as text:
+ * it keeps the existing value, or is reported unresolved when there is none.
+ */
 export function restoreMasked(
   incoming: Json,
   existing: Json | undefined,
