@@ -43,7 +43,7 @@ async function loadHost(client: DaemonClient, snapshot: CapabilitySnapshot, host
   ]);
   const companion = await readCompanion(client, plugins, config.pluginsEnabled);
   return {
-    rows: buildRows({ version: snapshot.version, listen, link: host.link, config, companion: companion.rows }),
+    rows: buildRows({ version: snapshot.version, listen, link: host.link, config, features: snapshot.features, companion: companion.rows }),
     plugins: plugins.map(gridPlugin),
     companion: companion.state,
   };

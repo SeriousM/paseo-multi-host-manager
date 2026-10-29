@@ -28,8 +28,8 @@ export interface RowDef {
 }
 
 /**
- * Settings rows of docs/design/ROWS.md (Paseo 0.13.2). Not here on purpose: `agents.idleRuntimeCleanup` (does not exist),
- * every other key. Restart-only rows are read-only, the plugin never writes `config.json`.
+ * Settings rows of docs/design/ROWS.md (Paseo 0.13.0 to 0.14.0). `idle` exists from 0.14.0 only: hosts without its
+ * `feature` flag show "needs newer Paseo". Not here on purpose: every other key. Restart-only rows are read-only, the plugin never writes `config.json`.
  */
 export const ROWS: readonly RowDef[] = [
   { id: "ver", label: "Paseo version", section: "info", source: "server_info", path: "version", write: "readonly", type: "text" },
@@ -43,6 +43,7 @@ export const ROWS: readonly RowDef[] = [
   { id: "browser", label: "Browser tools", section: "daemon", source: "config", path: "browserTools.enabled", write: "live", type: "bool" },
   { id: "hooks", label: "Terminal agent hooks", section: "daemon", source: "config", path: "enableTerminalAgentHooks", write: "live", type: "bool" },
   { id: "autoarch", label: "Auto-archive after merge", section: "daemon", source: "config", path: "autoArchiveAfterMerge", write: "live", type: "bool" },
+  { id: "idle", label: "Release idle agent runtimes", section: "daemon", source: "config", path: "idleRuntimeCleanup", write: "live", type: "bool", feature: "idleRuntimeCleanupSetting" },
   { id: "sys", label: "Append system prompt", section: "daemon", source: "config", path: "appendSystemPrompt", write: "live", type: "text" },
   // Entries lose `command` (binary paths) and `env` (credentials) when read. A paste merges into providers the target
   // already has: it never adds or removes one, and `<masked>` keys keep the target's value (server/rows/patch.ts).

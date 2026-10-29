@@ -6,14 +6,14 @@ import { OWN_INSTALL_SOURCE } from "../../shared/companion-contracts";
 import { plugin } from "./rpc-fakes";
 
 describe("ROWS", () => {
-  it("lists exactly the rows of ROWS.md, without idleRuntimeCleanup", () => {
-    expect(ROWS.map((row) => row.id)).toEqual(["ver", "osn", "listen", "conn", "wt", "log", "relay", "mcp", "browser", "hooks", "autoarch", "sys", "prov", "pen", "pw", "rc"]);
-    expect(JSON.stringify(ROWS)).not.toMatch(/idle/i);
+  it("lists exactly the rows of ROWS.md", () => {
+    expect(ROWS.map((row) => row.id)).toEqual(["ver", "osn", "listen", "conn", "wt", "log", "relay", "mcp", "browser", "hooks", "autoarch", "idle", "sys", "prov", "pen", "pw", "rc"]);
+    expect(ROW_BY_ID.idle).toMatchObject({ path: "idleRuntimeCleanup", write: "live", type: "bool", feature: "idleRuntimeCleanupSetting" });
   });
 
   it("is live only for what config.patch accepts; restart-only and info rows are read-only; secrets are never", () => {
     const live = ROWS.filter((row) => row.write === "live").map((row) => row.id);
-    expect(live).toEqual(["relay", "mcp", "browser", "hooks", "autoarch", "sys", "prov", "pen"]);
+    expect(live).toEqual(["relay", "mcp", "browser", "hooks", "autoarch", "idle", "sys", "prov", "pen"]);
     for (const id of ["ver", "osn", "listen", "conn", "wt", "log"]) expect(ROW_BY_ID[id]?.write).toBe("readonly");
     for (const id of ["pw", "rc"]) expect(ROW_BY_ID[id]).toMatchObject({ write: "never", source: "none", path: null });
   });
@@ -23,7 +23,7 @@ describe("ROWS", () => {
   });
 
   it("only lists live rows whose path is a config.patch key", () => {
-    const patchable = ["relay.enabled", "mcp.injectIntoAgents", "browserTools.enabled", "enableTerminalAgentHooks", "autoArchiveAfterMerge", "appendSystemPrompt", "providers", "pluginsEnabled"];
+    const patchable = ["relay.enabled", "mcp.injectIntoAgents", "browserTools.enabled", "enableTerminalAgentHooks", "autoArchiveAfterMerge", "idleRuntimeCleanup", "appendSystemPrompt", "providers", "pluginsEnabled"];
     expect(ROWS.filter((row) => row.write === "live").map((row) => row.path)).toEqual(patchable);
   });
 });
@@ -35,6 +35,7 @@ describe("rowPatch", () => {
     ["browser", true, { browserTools: { enabled: true } }],
     ["hooks", true, { enableTerminalAgentHooks: true }],
     ["autoarch", false, { autoArchiveAfterMerge: false }],
+    ["idle", false, { idleRuntimeCleanup: false }],
     ["pen", true, { pluginsEnabled: true }],
     ["sys", "", { appendSystemPrompt: "" }],
     ["prov", { a: { enabled: true } }, { providers: { a: { enabled: true } } }],

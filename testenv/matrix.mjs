@@ -12,7 +12,7 @@ import { envDir, hubSnapshot, readJson, root, secretsPath, statePath } from "./c
 const flag = process.argv.indexOf("--paseo");
 const paseo = flag === -1 ? null : process.argv[flag + 1];
 if (flag !== -1 && !paseo) {
-  console.error("--paseo expects a version (e.g. 0.13.0), beta or latest");
+  console.error("--paseo expects a version (e.g. 0.14.0), beta or latest");
   process.exit(2);
 }
 if (fs.existsSync(statePath)) {
@@ -50,7 +50,7 @@ let redactions = [];
 const redact = (text) => redactions.reduce((t, secret) => t.split(secret).join("***"), text);
 const tail = (text, lines = 15) => redact(text.trim().split("\n").slice(-lines).join("\n"));
 
-const CATEGORIES = ["reach", "list", "RPC", "install/remove/update", "password", "relay", "lockout guards"];
+const CATEGORIES = ["reach", "list", "RPC", "install/remove/update", "password", "relay", "idle row", "lockout guards"];
 
 function classify(test) {
   const name = [...test.ancestorTitles, test.title].join(" > ");
@@ -58,6 +58,7 @@ function classify(test) {
   if (/lockout confirmation/.test(name)) return "lockout guards";
   if (/plugin lifecycle/.test(name)) return "install/remove/update";
   if (/leaks no/.test(name)) return "list";
+  if (/idle row/.test(name)) return "idle row";
   if (/relay/.test(name)) return "relay";
   if (/lists hub, W and L as ok|shows the hub and W and L/.test(name)) return "reach";
   if (test.file.endsWith("companion.test.ts")) return "RPC";

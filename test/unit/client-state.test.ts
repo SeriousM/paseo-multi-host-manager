@@ -70,7 +70,7 @@ describe("grid model", () => {
 
   it("summarises hosts: tags, failures and access sensitivity", () => {
     expect(hostSummary(hub)).toMatchObject({ reachable: true, accessSensitive: true, versionTag: null, companion: "ok", platform: "linux" });
-    expect(hostSummary(host("n", { version: "0.14.0" })).versionTag).toBe("untested");
+    expect(hostSummary(host("n", { version: "0.15.0" })).versionTag).toBe("untested");
     expect(hostSummary(host("p", { version: "0.14.0-beta.2" })).versionTag).toBe("prerelease");
     expect(hostSummary(host("s", { link: "ssh" })).accessSensitive).toBe(false);
     expect(hostSummary(offline("o"))).toMatchObject({ reachable: false, failure: { code: "host_offline" } });
@@ -83,6 +83,8 @@ describe("grid model", () => {
     expect(rowCellView(state, "ver", "hub")).toMatchObject({ text: "0.13.2", readOnly: true, copyable: false });
     expect(rowCellView(state, "sys", "m")).toMatchObject({ text: "masked", masked: true, copyable: false });
     expect(rowCellView(state, "wt", "m").unavailable?.code).toBe("needs_companion");
+    const old = host("old", { data: data({ rows: { idle: { state: "needs_newer_paseo", value: null, maskedPaths: [] } } }) });
+    expect(rowCellView(run([hub, old]), "idle", "old")).toMatchObject({ text: "-", detail: "Needs a newer Paseo on this host", copyable: false, unavailable: { code: "needs_newer_paseo" } });
     expect(rowCellView(state, "mcp", "o")).toMatchObject({ text: "-", detail: null, unavailable: { code: "host_offline", message: "Host is offline" } });
     expect(pluginCellView(state, pluginRows(state.hosts)[0], "o")).toMatchObject({ text: "-", detail: null });
   });
@@ -126,6 +128,7 @@ describe("clipboard and paste planning", () => {
     expect(planPaste(state, { kind: "row", rowId: "mcp", sourceHost: "hub", value: false }, "o")).toMatchObject({ ok: false, reason: "Host is offline" });
     expect(planPaste(state, { kind: "row", rowId: "sys", sourceHost: "m", value: MASK_PLACEHOLDER }, "a")).toMatchObject({ ok: false, reason: "contains masked secrets" });
     expect(planPaste(state, { kind: "row", rowId: "relay", sourceHost: "hub", value: true }, "x")).toMatchObject({ ok: false, reason: "host lacks relayConfig" });
+    expect(planPaste(state, { kind: "row", rowId: "idle", sourceHost: "hub", value: false }, "x")).toMatchObject({ ok: false, reason: "host lacks idleRuntimeCleanupSetting" });
     expect(planPaste(state, { kind: "row", rowId: "ver", sourceHost: "hub", value: "0.13.2" }, "a")).toMatchObject({ ok: false, reason: "read-only" });
   });
 

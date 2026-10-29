@@ -12,6 +12,8 @@ export interface RowInputs {
   listen: string | null | undefined;
   link: LinkKind;
   config: MutableDaemonConfig;
+  /** The host's `server_info.features` flags; a row whose `feature` is missing there is "needs_newer_paseo". */
+  features: readonly string[];
   /** Our plugin's `mhm.host.info` and `mhm.config.read` values; null while the companion is not usable. */
   companion: { platform: string; configValues: Record<string, Json> | "unreadable" } | null;
 }
@@ -65,6 +67,7 @@ function cellFor(row: RowDef, inputs: RowInputs): RowCell {
       raw = row.path === null ? undefined : inputs.companion.configValues[row.path];
       break;
     case "config":
+      if (row.feature && !inputs.features.includes(row.feature)) return { state: "needs_newer_paseo", value: null, maskedPaths: [] };
       raw = row.path === null ? undefined : valueAt(inputs.config, row.path);
       if (row.id === "prov") raw = withoutProviderSecrets(raw);
       break;

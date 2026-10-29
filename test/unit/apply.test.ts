@@ -216,6 +216,7 @@ describe("apply capability gates", () => {
     ["pluginSettings", { op: "writeSettingsDoc", pluginId: "p", settingsId: "s", expectedRevision: "r", version: 1, values: {} }],
     ["pluginSettings", { op: "restoreSettingsDoc", pluginId: "p", settingsId: "s", expectedRevision: "r" }],
     ["relayConfig", { op: "setRow", rowId: "relay", value: true }],
+    ["idleRuntimeCleanupSetting", { op: "setRow", rowId: "idle", value: false }],
   ] as const)("returns unsupported_capability for %s without calling the daemon", async (flag, item) => {
     const { W, session } = setup({ W: without(flag) });
     const results = await run(session, [{ id: "i", host: "srv_W", ...item }]);
@@ -260,7 +261,8 @@ describe("apply confirmation and validation", () => {
   });
 
   it.each([
-    ["unknown row", { rowId: "idle", value: true }, "unknown_row"],
+    ["unknown row", { rowId: "nope", value: true }, "unknown_row"],
+    ["wrong type for idle", { rowId: "idle", value: "yes" }, "wrong_value_type"],
     ["removed row", { rowId: "agents.idleRuntimeCleanup", value: true }, "unknown_row"],
     ["read-only row", { rowId: "wt", value: "/x" }, "read_only_row"],
     ["version row", { rowId: "ver", value: "9.9.9" }, "read_only_row"],
@@ -315,6 +317,13 @@ describe("setRow", () => {
     const results = await run(session, [{ id: "p", host: "srv_W", op: "setRow", rowId: "prov", value: { claude: { enabled: false } } }]);
     expect(results[0].outcome.status).toBe("ok");
     expect(W.config.providers).toEqual({ claude: { enabled: false } });
+  });
+
+  it("patches the idle runtime cleanup setting where the daemon has it", async () => {
+    const { W, session } = setup();
+    const results = await run(session, [{ id: "i", host: "srv_W", op: "setRow", rowId: "idle", value: false }]);
+    expect(results[0].outcome.status).toBe("ok");
+    expect(W.config.idleRuntimeCleanup).toBe(false);
   });
 
   it("works on the hub as a target", async () => {

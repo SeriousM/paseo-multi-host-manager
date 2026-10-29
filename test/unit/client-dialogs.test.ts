@@ -237,7 +237,7 @@ describe("confirmation texts", () => {
 describe("capability report", () => {
   it("classifies the version and lists missing features with what they block", () => {
     expect(capabilityReport(host("a")).tier).toBe("tested");
-    expect(capabilityReport(host("a", { version: "0.14.0" })).tier).toBe("untested");
+    expect(capabilityReport(host("a", { version: "0.15.0" })).tier).toBe("untested");
     expect(capabilityReport(host("a", { version: "0.14.0-beta.2" })).tier).toBe("prerelease");
     const report = capabilityReport(host("a", { features: ["pluginManagement"] }));
     expect(report.missing).toBeGreaterThan(0);

@@ -14,6 +14,7 @@ export const ALL_FEATURES = [
   "daemonStatusRpc",
   "relayConfig",
   "daemonConfigReload",
+  "idleRuntimeCleanupSetting",
 ];
 
 export function plugin(id: string, overrides: Partial<PluginListItem> = {}): PluginListItem {
@@ -32,7 +33,7 @@ function merge(target: Record<string, unknown>, patch: Record<string, unknown>):
 }
 
 /** The paths of the patch that the fake daemon "knows"; everything else is silently ignored, like the real one. */
-const KNOWN_TOP_LEVEL = ["relay", "mcp", "browserTools", "enableTerminalAgentHooks", "autoArchiveAfterMerge", "appendSystemPrompt", "pluginsEnabled", "providers"];
+const KNOWN_TOP_LEVEL = ["relay", "mcp", "browserTools", "enableTerminalAgentHooks", "autoArchiveAfterMerge", "idleRuntimeCleanup", "appendSystemPrompt", "pluginsEnabled", "providers"];
 
 export interface PluginFake {
   client: DaemonClient;
@@ -67,7 +68,7 @@ export interface PluginFakeOptions {
 /** A daemon that keeps a config and a plugin list, logs every call and ignores patch keys it does not know. */
 export function pluginFake(serverId: string, options: PluginFakeOptions = {}): PluginFake {
   const info = options.info ?? serverInfo(serverId, options.version ?? "0.13.2", options.features ?? ALL_FEATURES);
-  const config: MutableDaemonConfig = { mcp: { injectIntoAgents: false }, browserTools: { enabled: false }, providers: {}, metadataGeneration: { providers: [] }, autoArchiveAfterMerge: false, enableTerminalAgentHooks: false, appendSystemPrompt: "", pluginsEnabled: true, ...options.config };
+  const config: MutableDaemonConfig = { mcp: { injectIntoAgents: false }, browserTools: { enabled: false }, providers: {}, metadataGeneration: { providers: [] }, autoArchiveAfterMerge: false, idleRuntimeCleanup: true, enableTerminalAgentHooks: false, appendSystemPrompt: "", pluginsEnabled: true, ...options.config };
   const plugins = options.plugins ?? [];
   const calls: string[] = [];
   const record = (entry: string) => {

@@ -69,7 +69,7 @@ export const hostsOverviewRpc = defineRpc({
   }),
 });
 
-export const ROW_CELL_STATES = ["ok", "absent", "needs_companion", "unreadable", "protected"] as const;
+export const ROW_CELL_STATES = ["ok", "absent", "needs_companion", "needs_newer_paseo", "unreadable", "protected"] as const;
 
 /** One row on one host. `value` is null unless `state` is `ok`; secret-looking strings are already masked. */
 export const rowCellSchema = z.object({

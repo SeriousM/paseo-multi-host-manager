@@ -57,7 +57,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       expect(hosts[0]).toMatchObject({ isHub: true, result: { ok: true } });
       const hubData = hosts[0].result.ok ? hosts[0].result.value : null;
       expect(hubData?.companion.state).toBe("ok");
-      expect(hubData?.rows.ver.value).toMatch(/^0\.13\./);
+      expect(hubData?.rows.ver.value).toMatch(/^0\.1[34]\./);
       expect(hubData?.rows.pw.state).toBe("protected");
       for (const [key, platform, port] of [["W", "win32", 6768], ["L", "linux", 6769]] as const) {
         const data = await dataOf(key);
@@ -198,11 +198,34 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       expect((await dataOf("W")).rows.sys.value).toBe(original);
     });
 
+    it.each(["W", "L"] as const)("handles the idle row on %s by Paseo version: live from 0.14.0, 'needs newer Paseo' before", async (key) => {
+      const before = (await dataOf(key)).rows;
+      const minor = Number(/^0\.(\d+)\./.exec(String(before.ver.value))?.[1]);
+      const item = (value: boolean): ApplyItem => ({ id: "idle", host: ids[key], op: "setRow", rowId: "idle", value });
+      if (minor < 14) {
+        expect(before.idle).toEqual({ state: "needs_newer_paseo", value: null, maskedPaths: [] });
+        const [result] = await apply(item(false));
+        expect(result.outcome).toMatchObject({ status: "failed", error: { code: "unsupported_capability", detail: "idleRuntimeCleanupSetting" } });
+        return;
+      }
+      expect(before.idle).toMatchObject({ state: "ok", value: expect.any(Boolean) });
+      const original = before.idle.value === true;
+      try {
+        const [result] = await apply(item(!original));
+        expect(result.outcome).toEqual({ status: "ok" });
+        expect((await dataOf(key)).rows.idle).toMatchObject({ state: "ok", value: !original });
+      } finally {
+        const [restored] = await apply(item(original));
+        expect(restored.outcome).toEqual({ status: "ok" });
+      }
+      expect((await dataOf(key)).rows.idle.value).toBe(original);
+    });
+
     it("rejects read-only rows and leaves the host alone", async () => {
       const results = await apply(
         { id: "wt", host: ids.W, op: "setRow", rowId: "wt", value: "/x" },
         { id: "pw", host: ids.W, op: "setRow", rowId: "pw", value: "x" },
-        { id: "idle", host: ids.W, op: "setRow", rowId: "idle", value: true },
+        { id: "nope", host: ids.W, op: "setRow", rowId: "nope", value: true },
       );
       expect(results.map((result) => result.outcome)).toMatchObject([
         { status: "failed", error: { code: "invalid_item", detail: "read_only_row" } },

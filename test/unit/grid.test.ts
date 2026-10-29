@@ -6,7 +6,7 @@ import type * as DaemonClientModule from "../../server/broker/daemon-client";
 import { OriginSession } from "../../server/broker/origin-session";
 import { loadGrid } from "../../server/rpc/grid";
 import { codedError, savedHost, SECRETS } from "./broker-fakes";
-import { plugin, pluginFake } from "./rpc-fakes";
+import { ALL_FEATURES, plugin, pluginFake } from "./rpc-fakes";
 import type { PluginFake, PluginFakeOptions } from "./rpc-fakes";
 
 vi.mock("../../server/broker/daemon-client", async (importOriginal) => ({
@@ -56,7 +56,7 @@ describe("grid load", () => {
   it("builds every row of ROWS.md and none else", async () => {
     const { load } = setup({ srv_W: { plugins: [plugin(OWN)], rpc: companionAnswers } });
     const data = dataOf(await load(), "srv_W");
-    expect(Object.keys(data.rows)).toEqual(["ver", "osn", "listen", "conn", "wt", "log", "relay", "mcp", "browser", "hooks", "autoarch", "sys", "prov", "pen", "pw", "rc"]);
+    expect(Object.keys(data.rows)).toEqual(["ver", "osn", "listen", "conn", "wt", "log", "relay", "mcp", "browser", "hooks", "autoarch", "idle", "sys", "prov", "pen", "pw", "rc"]);
     expect(data.rows).toMatchObject({
       ver: { state: "ok", value: "0.13.2" },
       osn: { state: "ok", value: "linux" },
@@ -66,6 +66,7 @@ describe("grid load", () => {
       log: { state: "ok", value: "info" },
       mcp: { state: "ok", value: false },
       autoarch: { state: "ok", value: false },
+      idle: { state: "ok", value: true },
       sys: { state: "ok", value: "" },
       pen: { state: "ok", value: true },
       pw: { state: "protected", value: null },
@@ -73,6 +74,14 @@ describe("grid load", () => {
     });
     // Not configured on this daemon: shown as absent, never as false.
     expect(data.rows.relay.state).toBe("absent");
+  });
+
+  it("shows the idle row as needing a newer Paseo on a host without its flag, and its value elsewhere", async () => {
+    const features = ALL_FEATURES.filter((feature) => feature !== "idleRuntimeCleanupSetting");
+    const { load } = setup({ srv_old: { version: "0.13.2", features }, srv_new: { version: "0.14.0", config: { idleRuntimeCleanup: false } } });
+    const rows = await load();
+    expect(dataOf(rows, "srv_old").rows.idle).toEqual({ state: "needs_newer_paseo", value: null, maskedPaths: [] });
+    expect(dataOf(rows, "srv_new").rows.idle).toEqual({ state: "ok", value: false, maskedPaths: [] });
   });
 
   it("masks secret-looking values and drops provider commands and environments", async () => {

@@ -11,7 +11,7 @@ import type { CellRef, ClipboardEntry, GridHost, MhmState, StagedItem } from "./
 /** Oldest Paseo the hub serves (server/broker/capabilities.ts MINIMUM_VERSION). */
 export const MINIMUM_PASEO = "0.13.0";
 /** Newest stable Paseo this plugin was tested against; newer stable hosts get an "untested" tag. */
-export const TESTED_VERSION = "0.13.2";
+export const TESTED_VERSION = "0.14.0";
 
 /** Hub first; the others keep the hub directory's order. */
 export function orderHosts(hosts: readonly GridHost[]): GridHost[] {
@@ -133,6 +133,7 @@ export interface Unavailable {
 const ROW_STATE_REASONS: Record<string, string> = {
   absent: "Not set on this host",
   needs_companion: "Needs multi-host-manager running on this host",
+  needs_newer_paseo: "Needs a newer Paseo on this host",
   unreadable: "The host's config.json could not be read",
   protected: "Never read or copied",
 };

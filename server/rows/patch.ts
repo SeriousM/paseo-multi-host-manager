@@ -79,6 +79,8 @@ export function rowPatch(rowId: string, value: unknown): RowPatch {
       return typeof value === "boolean" ? { patch: { enableTerminalAgentHooks: value } } : wrongType;
     case "autoarch":
       return typeof value === "boolean" ? { patch: { autoArchiveAfterMerge: value } } : wrongType;
+    case "idle":
+      return typeof value === "boolean" ? { patch: { idleRuntimeCleanup: value } } : wrongType;
     case "pen":
       return typeof value === "boolean" ? { patch: { pluginsEnabled: value } } : wrongType;
     case "sys":
