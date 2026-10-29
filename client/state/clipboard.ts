@@ -1,0 +1,134 @@
+import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
+import { MASK_PLACEHOLDER } from "../../shared/mask";
+import { ROW_BY_ID } from "../../shared/rows";
+import { findHost, hostData, pluginRows, sameJson } from "./grid-model";
+import { hostRef, itemOnHost } from "./staging";
+import type { CellRef, ClipboardEntry, GridHost, MhmState, StageInput } from "./types";
+
+/** Revision the companion reports for a settings document that does not exist yet (server/companion/files.ts). */
+export const MISSING_REVISION = "missing";
+
+/**
+ * Clipboard entry for a row or plugin cell, or null when the cell has nothing to copy. Document cells are copied with
+ * the values from `mhm.doc.read` (the `copyDoc` action), because the grid only has their metadata.
+ */
+export function clipFromCell(state: Pick<MhmState, "hosts">, ref: CellRef): ClipboardEntry | null {
+  const host = findHost(state, ref.hostId);
+  const data = hostData(host);
+  if (!data) return null;
+  if (ref.kind === "row") {
+    const cell = data.rows[ref.rowId];
+    if (ROW_BY_ID[ref.rowId]?.write !== "live" || cell?.state !== "ok") return null;
+    return { kind: "row", rowId: ref.rowId, sourceHost: ref.hostId, value: cell.value };
+  }
+  if (ref.kind === "plugin") {
+    const plugin = data.plugins.find((candidate) => candidate.id === ref.pluginId);
+    return plugin ? { kind: "plugin", pluginId: ref.pluginId, sourceHost: ref.hostId, plugin } : null;
+  }
+  return null;
+}
+
+/** Result of pasting the clipboard onto one host: the items to stage, or why not (`same`: nothing would change). */
+export type PastePlan = { ok: true; inputs: StageInput[]; note: string } | { ok: false; same: boolean; reason: string };
+
+function refuse(reason: string, same = false): PastePlan {
+  return { ok: false, same, reason };
+}
+
+function hasFeature(host: GridHost, feature: string): boolean {
+  return host.result.ok && host.result.snapshot.features.includes(feature);
+}
+
+/** `pluginsEnabled` on the host, with a staged change taking precedence. */
+function pluginsOn(state: Pick<MhmState, "staged">, host: GridHost): boolean {
+  const staged = state.staged.find(({ item }) => item.op === "setRow" && item.rowId === "pen" && itemOnHost(item.host, host));
+  if (staged?.item.op === "setRow") return staged.item.value === true;
+  return hostData(host)?.rows.pen?.value !== false;
+}
+
+function pasteRow(clip: Extract<ClipboardEntry, { kind: "row" }>, target: GridHost): PastePlan {
+  const row = ROW_BY_ID[clip.rowId];
+  if (!row || row.write !== "live") return refuse("read-only");
+  if (row.feature && !hasFeature(target, row.feature)) return refuse(`host lacks ${row.feature}`);
+  // Providers keep the target's own value behind a masked key; any other masked value cannot be written.
+  if (row.id !== "prov" && JSON.stringify(clip.value).includes(MASK_PLACEHOLDER)) return refuse("contains masked secrets");
+  const current = hostData(target)?.rows[clip.rowId];
+  if (current?.state === "ok" && sameJson(current.value, clip.value)) return refuse("identical", true);
+  const note = row.id === "prov" ? "updates providers the host already has; new ones are ignored" : "applied live";
+  return { ok: true, inputs: [{ op: "setRow", host: hostRef(target), rowId: clip.rowId, value: clip.value }], note };
+}
+
+function pastePlugin(state: Pick<MhmState, "hosts" | "staged">, clip: Extract<ClipboardEntry, { kind: "plugin" }>, target: GridHost): PastePlan {
+  const current = hostData(target)?.plugins.find((plugin) => plugin.id === clip.pluginId);
+  const host = hostRef(target);
+  if (!current) {
+    // Any host may hold the portable source, not only the one copied from.
+    const portable = pluginRows(state.hosts).find((row) => row.id === clip.pluginId)?.source ?? null;
+    const source = portable?.installSource ?? null;
+    if (portable === null || source === null) return refuse("local directory source: exists only on its own host");
+    if (!hasFeature(target, "pluginSourceInstallation")) return refuse("host lacks pluginSourceInstallation");
+    if (!pluginsOn(state, target)) return refuse('plugins are switched off on this host (stage "Plugins enabled" first)');
+    // `ref` (a git commit) arrives with the next contract revision of the plugin source.
+    const ref = "ref" in portable && typeof portable.ref === "string" ? portable.ref : undefined;
+    const input: StageInput = ref === undefined ? { op: "installPlugin", host, source, pluginId: clip.pluginId } : { op: "installPlugin", host, source, ref, pluginId: clip.pluginId };
+    return { ok: true, inputs: [input], note: `install from ${source}${ref ? ` at ${ref.slice(0, 7)}` : ""}` };
+  }
+  const inputs: StageInput[] = [];
+  const notes: string[] = [];
+  if (current.version !== clip.plugin.version && current.source.kind !== "directory" && hasFeature(target, "pluginSourceUpdates")) {
+    inputs.push({ op: "updatePlugin", host, pluginId: clip.pluginId });
+    notes.push(`update from ${current.version ?? "?"} to the newest release`);
+  }
+  const selfOff = target.isHub && clip.pluginId === OWN_PLUGIN_ID && !clip.plugin.enabled;
+  if (current.enabled !== clip.plugin.enabled && !selfOff) {
+    inputs.push({ op: "setPluginEnabled", host, pluginId: clip.pluginId, enabled: clip.plugin.enabled });
+    notes.push(clip.plugin.enabled ? "enable" : "disable");
+  }
+  return inputs.length > 0 ? { ok: true, inputs, note: notes.join("; ") } : refuse("identical", true);
+}
+
+function pasteDoc(clip: Extract<ClipboardEntry, { kind: "doc" }>, target: GridHost): PastePlan {
+  const data = hostData(target);
+  if (!data?.plugins.some((plugin) => plugin.id === clip.pluginId)) return refuse("plugin not installed on this host");
+  if (data.companion.state !== "ok") return refuse("needs multi-host-manager running on this host");
+  if (!data.companion.consent.allowPluginSettingsWrites) return refuse("settings writes are off on this host (opt-in in its multi-host-manager settings)");
+  if (!hasFeature(target, "pluginSettings")) return refuse("host lacks pluginSettings");
+  const existing = data.companion.settingsDocuments.find((doc) => doc.pluginId === clip.pluginId && doc.settingsId === clip.settingsId);
+  const input: StageInput = {
+    op: "writeSettingsDoc",
+    host: hostRef(target),
+    pluginId: clip.pluginId,
+    settingsId: clip.settingsId,
+    expectedRevision: existing?.revision ?? MISSING_REVISION,
+    version: clip.version,
+    values: clip.values,
+  };
+  const kept = clip.maskedPaths.length > 0 ? `; ${clip.maskedPaths.length} masked value(s) keep this host's own` : "";
+  return { ok: true, inputs: [input], note: `${existing ? "replace" : "create"} settings document${kept}` };
+}
+
+/** What pasting the clipboard onto `targetHostId` would stage. Same row/plugin/document only; the grid has no cross-row paste. */
+export function planPaste(state: Pick<MhmState, "hosts" | "staged">, clip: ClipboardEntry, targetHostId: string): PastePlan {
+  const target = findHost(state, targetHostId);
+  if (!target) return refuse("unknown host");
+  if (!target.result.ok) return refuse(target.result.error.message);
+  if (clip.sourceHost === targetHostId) return refuse("source", true);
+  switch (clip.kind) {
+    case "row":
+      return pasteRow(clip, target);
+    case "plugin":
+      return pastePlugin(state, clip, target);
+    case "doc":
+      return pasteDoc(clip, target);
+  }
+}
+
+/** Items for "paste to several hosts": every selected target the clipboard can be pasted onto. */
+export function pasteTargetsInputs(state: Pick<MhmState, "hosts" | "staged" | "clipboard" | "pasteTargets">): StageInput[] {
+  const clip = state.clipboard;
+  if (!clip) return [];
+  return state.pasteTargets.flatMap((hostId) => {
+    const plan = planPaste(state, clip, hostId);
+    return plan.ok ? plan.inputs : [];
+  });
+}
