@@ -10,7 +10,7 @@ import {
   type Consent,
 } from "../../shared/companion-contracts";
 import { MASK_PLACEHOLDER } from "../../shared/mask";
-import { readConfig, writeConfigKeys } from "../../server/companion/config";
+import { readConfig } from "../../server/companion/config";
 import { revisionOf, type CompanionContext } from "../../server/companion/files";
 import { hostInfo } from "../../server/companion";
 import { listSettings, readSettings, restoreSettings, writeSettings } from "../../server/companion/plugin-settings";
@@ -37,7 +37,7 @@ function writeSettingsFile(plugin: string, id: string, document: object): string
 
 beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "mhm-companion-"));
-  consent = { allowConfigWrites: true, allowPluginSettingsWrites: true };
+  consent = { allowPluginSettingsWrites: true };
   ctx = { home, consent: async () => consent };
 });
 
@@ -46,8 +46,9 @@ afterEach(() => {
 });
 
 describe("consent defaults", () => {
-  it("both opt-ins default to false", () => {
-    expect(consentSchema.parse({})).toEqual({ allowConfigWrites: false, allowPluginSettingsWrites: false });
+  it("the settings-write opt-in defaults to false and the removed config-write opt-in is dropped", () => {
+    expect(consentSchema.parse({})).toEqual({ allowPluginSettingsWrites: false });
+    expect(consentSchema.parse({ allowConfigWrites: true })).toEqual({ allowPluginSettingsWrites: false });
   });
 });
 
@@ -60,111 +61,32 @@ describe("hostInfo", () => {
 });
 
 describe("config.read", () => {
-  it("returns only allow-listed keys and never auth hashes or registry credentials", () => {
-    writeConfig({
+  it("returns only the restart-only keys and never auth hashes, registry credentials or patchable keys", () => {
+    const revision = writeConfig({
       daemon: {
         listen: "127.0.0.1:6767",
         auth: { password: "$2b$10$abcdefghijklmnopqrstuv" },
         relay: { enabled: true, endpoint: "relay.example" },
-        mcp: { injectIntoAgents: false },
+        appendSystemPrompt: "prompt",
       },
       pluginRegistries: { "plugins.example": { authorization: "Bearer topsecret" } },
       worktrees: { root: "/wt" },
+      log: { console: { level: "info" } },
+      pluginsEnabled: true,
       agents: { providers: { claude: { enabled: true, env: { ANTHROPIC_API_KEY: "sk-live" } } } },
     });
-    const result = readConfig(ctx);
-    expect(Object.keys(result.values).sort()).toEqual(
-      ["agents.providers", "daemon.listen", "daemon.mcp.injectIntoAgents", "daemon.relay.enabled", "worktrees.root"].sort(),
-    );
-    expect(Object.keys(result.values).every((key) => CONFIG_READ_PATHS.includes(key))).toBe(true);
-    const text = JSON.stringify(result);
-    expect(text).not.toContain("$2b$");
-    expect(text).not.toContain("topsecret");
-    expect(text).not.toContain("sk-live");
-    expect(result.maskedPaths).toEqual(["agents.providers.claude.env.ANTHROPIC_API_KEY"]);
+    expect(readConfig(ctx)).toEqual({
+      revision,
+      values: { "daemon.listen": "127.0.0.1:6767", "worktrees.root": "/wt", "log.console.level": "info" },
+      maskedPaths: [],
+    });
+    expect(CONFIG_READ_PATHS).toEqual(["daemon.listen", "worktrees.root", "log.console.level"]);
+    const text = JSON.stringify(readConfig(ctx));
+    for (const needle of ["$2b$", "topsecret", "sk-live", "relay.example", "prompt"]) expect(text).not.toContain(needle);
   });
 
   it("returns the 'missing' revision and no values without a file", () => {
     expect(readConfig(ctx)).toEqual({ revision: "missing", values: {}, maskedPaths: [] });
-  });
-});
-
-describe("config.writeKeys", () => {
-  it("is capability_disabled when allowConfigWrites is off, and writes nothing", async () => {
-    const revision = writeConfig({ daemon: {} });
-    consent = { allowConfigWrites: false, allowPluginSettingsWrites: true };
-    const result = await writeConfigKeys(ctx, { expectedRevision: revision, changes: [{ path: "daemon.relay.enabled", value: true }] });
-    expect(result).toMatchObject({ ok: false, code: "capability_disabled" });
-    expect(revisionOf(fs.readFileSync(configFile()))).toBe(revision);
-  });
-
-  it("writes an allow-listed key, keeps other keys, writes a .bak with the previous bytes", async () => {
-    const before = { daemon: { relay: { enabled: true }, auth: { password: "$2b$10$keepme" } }, pluginsEnabled: true };
-    const revision = writeConfig(before);
-    const result = await writeConfigKeys(ctx, {
-      expectedRevision: revision,
-      changes: [
-        { path: "daemon.relay.enabled", value: false },
-        { path: "daemon.autoArchiveAfterMerge", value: true },
-      ],
-    });
-    expect(result).toMatchObject({ ok: true, appliedPaths: ["daemon.relay.enabled", "daemon.autoArchiveAfterMerge"], restartRequired: [] });
-    const written = JSON.parse(fs.readFileSync(configFile(), "utf8"));
-    expect(written).toEqual({
-      daemon: { relay: { enabled: false }, auth: { password: "$2b$10$keepme" }, autoArchiveAfterMerge: true },
-      pluginsEnabled: true,
-    });
-    expect(JSON.parse(fs.readFileSync(`${configFile()}.bak`, "utf8"))).toEqual(before);
-    if (result.ok) expect(result.revision).toBe(revisionOf(fs.readFileSync(configFile())));
-    expect(fs.readdirSync(home).sort()).toEqual(["config.json", "config.json.bak"]);
-    if (posixModes) {
-      expect(fs.statSync(configFile()).mode & 0o777).toBe(0o600);
-      expect(fs.statSync(`${configFile()}.bak`).mode & 0o777).toBe(0o600);
-    }
-  });
-
-  it.each(["daemon.listen", "worktrees.root", "log.console.level", "pluginsEnabled", "daemon.auth.password", "pluginRegistries.x.authorization", "__proto__"])(
-    "rejects non-allow-listed key %s without touching the file",
-    async (key) => {
-      const revision = writeConfig({ daemon: {} });
-      const before = fs.readFileSync(configFile());
-      const result = await writeConfigKeys(ctx, { expectedRevision: revision, changes: [{ path: "daemon.relay.enabled", value: true }, { path: key, value: "x" }] });
-      expect(result).toMatchObject({ ok: false, code: "not_allowed" });
-      expect(fs.readFileSync(configFile())).toEqual(before);
-      expect(fs.existsSync(`${configFile()}.bak`)).toBe(false);
-    },
-  );
-
-  it("detects a conflict when the file changed after it was read", async () => {
-    const stale = writeConfig({ daemon: { relay: { enabled: true } } });
-    const changed = writeConfig({ daemon: { relay: { enabled: true } }, pluginsEnabled: false });
-    const result = await writeConfigKeys(ctx, { expectedRevision: stale, changes: [{ path: "daemon.relay.enabled", value: false }] });
-    expect(result).toMatchObject({ ok: false, code: "conflict", currentRevision: changed });
-    expect(revisionOf(fs.readFileSync(configFile()))).toBe(changed);
-  });
-
-  it("validates value types per key", async () => {
-    const revision = writeConfig({});
-    const result = await writeConfigKeys(ctx, { expectedRevision: revision, changes: [{ path: "daemon.relay.enabled", value: "yes" }] });
-    expect(result).toMatchObject({ ok: false, code: "invalid_input" });
-  });
-
-  it("creates the file from the 'missing' revision", async () => {
-    const result = await writeConfigKeys(ctx, { expectedRevision: "missing", changes: [{ path: "daemon.appendSystemPrompt", value: "hi" }] });
-    expect(result).toMatchObject({ ok: true });
-    expect(JSON.parse(fs.readFileSync(configFile(), "utf8"))).toEqual({ daemon: { appendSystemPrompt: "hi" } });
-    expect(fs.existsSync(`${configFile()}.bak`)).toBe(false);
-  });
-
-  it("keeps existing secrets when a provider write sends the masked placeholder", async () => {
-    const revision = writeConfig({ agents: { providers: { p: { enabled: true, env: { API_KEY: "real" } } } } });
-    const read = readConfig(ctx);
-    const providers = read.values["agents.providers"] as { p: { enabled: boolean; env: { API_KEY: string } } };
-    expect(providers.p.env.API_KEY).toBe(MASK_PLACEHOLDER);
-    providers.p.enabled = false;
-    const result = await writeConfigKeys(ctx, { expectedRevision: revision, changes: [{ path: "agents.providers", value: providers }] });
-    expect(result).toMatchObject({ ok: true });
-    expect(JSON.parse(fs.readFileSync(configFile(), "utf8")).agents.providers).toEqual({ p: { enabled: false, env: { API_KEY: "real" } } });
   });
 });
 
@@ -181,7 +103,7 @@ describe("plugin settings documents", () => {
   });
 
   it("reads with secrets masked by key and by value, and works with opt-in off", () => {
-    consent = { allowConfigWrites: false, allowPluginSettingsWrites: false };
+    consent = { allowPluginSettingsWrites: false };
     const revision = writeSettingsFile("other-plugin", "main", { version: 2, values: { name: "n", apiToken: "abc", note: "ghp_zzz" } });
     expect(readSettings(ctx, ref)).toEqual({
       ok: true,
@@ -199,7 +121,7 @@ describe("plugin settings documents", () => {
 
   it("is capability_disabled for write and restore when allowPluginSettingsWrites is off", async () => {
     const revision = writeSettingsFile("other-plugin", "main", { version: 1, values: { a: 1 } });
-    consent = { allowConfigWrites: true, allowPluginSettingsWrites: false };
+    consent = { allowPluginSettingsWrites: false };
     expect(await writeSettings(ctx, { ...ref, expectedRevision: revision, version: 1, values: { a: 2 } })).toMatchObject({ ok: false, code: "capability_disabled" });
     expect(await restoreSettings(ctx, { ...ref, expectedRevision: revision })).toMatchObject({ ok: false, code: "capability_disabled" });
     expect(JSON.parse(fs.readFileSync(settingsFile("other-plugin", "main"), "utf8"))).toEqual({ version: 1, values: { a: 1 } });

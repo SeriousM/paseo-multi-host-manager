@@ -1,12 +1,12 @@
 # Implementation plan
 
-Decisions: companion is the same plugin, installed through the hub; distribution via the Paseo registry; direct `config.json` writes only for reload-safe keys (backup first); restart-only rows are read-only in v1; secrets masked by key-name and value pattern, with a per-paste preview.
+Decisions: companion is the same plugin, installed through the hub; distribution via the Paseo registry; no `config.json` writes (reload-safe keys go through `config.patch`); restart-only rows are read-only in v1; secrets masked by key-name and value pattern, with a per-paste preview.
 
 ## Capability tiers (registry acceptance)
 Each tier is documented in `OVERVIEW.md` with the exact file/API it touches.
-- **Tier A (always):** hub broker. Reads `local-credential` and `paseo.pid` (same user, same as the CLI), uses `@getpaseo/client/node`, `openHostRoute` and the DaemonClient methods the CLI uses. The `@getpaseo/client/internal/daemon-client` import is isolated in one file (`server/broker/daemon-client.ts`).
-- **Tier B (opt-in per target host, default off):** `allowConfigWrites` setting. The companion writes reload-safe `config.json` keys with backup.
-- **Tier C (opt-in per target host, default off):** `allowPluginSettingsWrites` setting. The companion reads/writes other plugins' settings documents with backup, masking and preview.
+- **Tier A (always):** hub broker. Reads `local-credential` and `paseo.pid` (same user, same as the CLI), uses `@getpaseo/client/node`, `openHostRoute` and the DaemonClient methods the CLI uses. The `@getpaseo/client/internal/daemon-client` import is isolated in one file (`server/broker/daemon-client.ts`). The companion reads the restart-only `config.json` keys (`daemon.listen`, `worktrees.root`, `log.console.level`) for display.
+- **Tier B (opt-in per target host, default off):** `allowPluginSettingsWrites` setting. The companion writes other plugins' settings documents with backup, masking and preview.
+- **Removed: `config.json` writes** (former tier B, `allowConfigWrites`, `mhm.config.write-keys`). Every reload-safe key is live through `config.patch` (ROWS.md), and the restart-only rows stay read-only, so a direct file write had no remaining use and only added risk.
 - Never read `hosts.json`. Never log connection strings/targets beyond a scheme classification.
 
 ## Review findings to honour
@@ -31,7 +31,7 @@ Tests: vitest unit tests (fake DaemonClient, temp dirs cleaned in `afterEach`); 
 |---|---|---|---|
 | WP4 Scaffold | Layout above, strict tsconfig, eslint rules (no-explicit-any, consistent-type-imports, no dynamic import), vitest, `npm pack --dry-run` check, OVERVIEW.md skeleton with tier disclosures. | - | typecheck, lint, test pass; pack lists shrinkwrap; `paseo plugin add .` on hub -> running. |
 | WP5 Broker | Origin client (local-credential, paseo.pid, 0.0.0.0 -> 127.0.0.1, `~/.paseo` fallback); routed client pool with dispose; `server_info` snapshot; link classification (relay/ssh/loopback/tcp-plain); prerelease and minimum-version gates; `HostResult<T>` + error enum; verify-after-patch helper. Hub column via origin client. | WP4 | Unit tests incl. "no credential string in output"; integration: overview lists W, L, wrong-password host with `authentication_failed`, hub as a column. |
-| WP6 Companion | `defineSettings` with `allowConfigWrites`, `allowPluginSettingsWrites` (default false). RPCs: `host.info`, `config.readFile`, `config.writeKeys` (ROWS allow-list, atomic 0600 write, `.bak`, reload, returns appliedPaths/restartRequired), `settings.list/read/write/restore` (masking, revision check). | WP4 | Unit tests on temp dirs; integration on W+L: allowed key applied, disallowed key rejected, opt-in off -> `capability_disabled`. |
+| WP6 Companion | `defineSettings` with `allowPluginSettingsWrites` (default false). RPCs: `host.info`, `config.read` (restart-only keys, read-only), `settings.list/read/write/restore` (masking, revision check, atomic 0600 write, `.bak`). | WP4 | Unit tests on temp dirs; integration on W+L: restart-only keys read without secrets, opt-in off -> `capability_disabled`. |
 | WP7 Rows + RPC + apply | `shared/rows.ts` from ROWS.md; Zod contracts; staging apply (sequential, per-item status, retry, backup refs); plugin install/remove/update/enable/disable. | WP5, WP6 | Integration: install keep-awake on L via hub, enable/disable, update check, remove; settings paste W -> L shows "written, validity unknown"; `pluginsEnabled=false` marks companion rows unavailable, not failed. |
 | WP8 UI | 8a state model + grid; 8b clipboard bar, staging drawer, trust/destructive dialogs, capability dialog; 8c settings-document editor with secret preview and reload follow-up; compact view; registry screenshot. | WP7 contracts | Desktop + web + narrow width; every mockup action reachable; opt-in-off hosts show the reason; lint clean. |
 | WP9 Matrix + release | `npm run matrix` (reach/list/RPC/install/remove/update/password/relay, `beta` mode); 0.13.0 check; final OVERVIEW.md; registry submission checklist; docs sync. | WP7, WP8 | Matrix green on 0.13.2 W+L; `npm pack` contents reviewed; testenv leaves nothing behind. |
@@ -39,5 +39,5 @@ Tests: vitest unit tests (fake DaemonClient, temp dirs cleaned in `afterEach`); 
 ## Questions for the Paseo maintainers (non-blocking)
 a. Is `@getpaseo/client/internal/daemon-client` + `openHostRoute` acceptable for a registry plugin, or will plugin management be exposed on `PaseoApi`?
 b. Is reading `local-credential` acceptable, or is there a sanctioned way for a plugin to get a DaemonClient to its own daemon?
-c. Is writing `config.json` / other plugins' settings documents acceptable behind per-host opt-in?
+c. Is writing other plugins' settings documents acceptable behind per-host opt-in?
 d. Is "installs plugins on other hosts after user confirmation" within the runtime-install rule?

@@ -5,7 +5,6 @@ import { defineSettings } from "@getpaseo/plugin";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import {
   configReadRpc,
-  configWriteKeysRpc,
   consentSchema,
   hostInfoRpc,
   settingsListRpc,
@@ -14,7 +13,7 @@ import {
   settingsWriteRpc,
   type Consent,
 } from "../../shared/companion-contracts";
-import { readConfig, writeConfigKeys } from "./config";
+import { readConfig } from "./config";
 import type { CompanionContext } from "./files";
 import { listSettings, readSettings, restoreSettings, writeSettings } from "./plugin-settings";
 
@@ -22,7 +21,7 @@ export const companionSettings = defineSettings({ id: "companion", scope: "host"
 
 export type HostInfo = z.output<typeof hostInfoRpc.output>;
 
-const NO_CONSENT: Consent = { allowConfigWrites: false, allowPluginSettingsWrites: false };
+const NO_CONSENT: Consent = { allowPluginSettingsWrites: false };
 
 export function hostInfo(home: string, consent: Consent): HostInfo {
   const relative = path.relative(os.homedir(), home);
@@ -48,7 +47,6 @@ export function registerCompanion(server: PluginServerContext): void {
 
   server.handle(hostInfoRpc, async () => hostInfo(context().home, await consent()));
   server.handle(configReadRpc, () => readConfig(context()));
-  server.handle(configWriteKeysRpc, (input) => writeConfigKeys(context(), input));
   server.handle(settingsListRpc, () => listSettings(context()));
   server.handle(settingsReadRpc, (input) => readSettings(context(), input));
   server.handle(settingsWriteRpc, (input) => writeSettings(context(), input));

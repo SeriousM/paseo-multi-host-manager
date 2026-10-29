@@ -62,7 +62,7 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     expect(result).toMatchObject({ ok: false, code: "capability_disabled" });
   });
 
-  it("config.write-keys is gone: the hub patches config through config.patch instead", async () => {
+  it("config.write-keys is not exposed: the hub patches config through config.patch instead", async () => {
     await expect(host.invokePluginRpc(PLUGIN_ID, "mhm.config.write-keys", {})).rejects.toThrow();
   });
 
@@ -77,7 +77,7 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     expect(await patchConfigVerified(host, ignoredKey)).toEqual({ applied: [], ignored: ["worktrees.root"] });
   });
 
-  it("config.read returns the patched value and the restart-only keys, without secrets", async () => {
+  it("config.read returns only the restart-only keys, without secrets", async () => {
     const original = files.read("config.json");
     if (original === null) throw new Error("config.json missing");
     const document = JSON.parse(original);
@@ -89,13 +89,13 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     files.write("config.json", JSON.stringify(document, null, 2));
     try {
       const read = await call(configReadRpc, {});
-      expect(read.values["daemon.appendSystemPrompt"]).toBe(PROMPT);
-      expect(read.values["daemon.listen"]).toBe(`127.0.0.1:${key === "W" ? 6768 : 6769}`);
-      expect(read.values["worktrees.root"]).toBe("mhm-worktrees-test");
-      expect(read.values["log.console.level"]).toBe("info");
-      expect(read.values["pluginsEnabled"]).toBe(true);
+      expect(read.values).toEqual({
+        "daemon.listen": `127.0.0.1:${key === "W" ? 6768 : 6769}`,
+        "worktrees.root": "mhm-worktrees-test",
+        "log.console.level": "info",
+      });
       const serialized = JSON.stringify(read);
-      for (const needle of [hash, SECRET, "registry.example.test", "authorization"]) expect(serialized.includes(needle)).toBe(false);
+      for (const needle of [hash, SECRET, PROMPT, "registry.example.test", "authorization"]) expect(serialized.includes(needle)).toBe(false);
     } finally {
       files.write("config.json", original);
     }
