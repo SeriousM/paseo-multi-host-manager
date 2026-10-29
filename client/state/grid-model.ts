@@ -118,8 +118,10 @@ export function formatValue(row: RowDef | undefined, value: Json): string {
   return text.length > 60 ? `${text.slice(0, 57)}...` : text;
 }
 
+/** Version text: `v1.2.3`, a git or registry revision as its short commit, `dir` for directory plugins. */
 export function formatPlugin(plugin: GridPlugin): string {
-  return plugin.version ? `v${plugin.version}` : plugin.source.kind === "directory" ? "dir" : "installed";
+  if (!plugin.version) return plugin.source.kind === "directory" ? "dir" : "installed";
+  return /^[0-9a-f]{12,40}$/i.test(plugin.version) ? plugin.version.slice(0, 7) : `v${plugin.version}`;
 }
 
 /** Why a cell has no value: a host failure code, or the row's own state on a reachable host. */
@@ -227,8 +229,9 @@ function hostUnavailable(host: GridHost | undefined): Unavailable | null {
   return host.result.ok ? null : { code: host.result.error.code, message: host.result.error.message };
 }
 
+/** "old -> new" while the change is outstanding; once applied the reloaded grid already shows the new value. */
 function stagedRowText(staged: StagedItem, current: string, row: RowDef | undefined): string {
-  return staged.item.op === "setRow" ? `${current} -> ${formatValue(row, staged.item.value)}` : current;
+  return staged.item.op === "setRow" && staged.status !== "ok" ? `${current} -> ${formatValue(row, staged.item.value)}` : current;
 }
 
 export function rowCellView(state: MhmState, rowId: string, hostId: string): CellView {

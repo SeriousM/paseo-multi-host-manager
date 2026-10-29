@@ -32,7 +32,8 @@ function RowLabel({ theme, row }: Pick<MhmSurfaceProps, "theme"> & { row: RowDef
   const sensitive = row.id === "relay" || row.id === "pen";
   return (
     <View style={{ height: SIZES.rowHeight, paddingHorizontal: 11, paddingVertical: 6, borderBottomWidth: 1, borderColor: theme.colors.border, gap: 2 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+      {/* One line: fixed row heights keep the label column aligned with the host columns. */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
         <Text numberOfLines={1} style={{ color: theme.colors.foreground, fontWeight: "600", fontSize: 12, flexShrink: 1 }}>
           {row.label}
         </Text>
@@ -56,8 +57,8 @@ function PluginLabel({ theme, controller, row }: Pick<MhmSurfaceProps, "theme" |
       </Text>
       <View style={{ flexDirection: "row", gap: 5, alignItems: "center" }}>
         <Badge theme={theme} label={row.source?.kind ?? "?"} />
-        <Button theme={theme} label="Install on..." disabled={!installable} onPress={() => controller.dispatch({ type: "openDialog", dialog: { kind: "install", pluginId: row.id, hostId: null } })} />
-        <Button theme={theme} label="Remove from..." onPress={() => controller.dispatch({ type: "openDialog", dialog: { kind: "remove", pluginId: row.id, hostId: null } })} />
+        <Button theme={theme} label="Install..." disabled={!installable} onPress={() => controller.dispatch({ type: "openDialog", dialog: { kind: "install", pluginId: row.id, hostId: null } })} />
+        <Button theme={theme} label="Remove..." onPress={() => controller.dispatch({ type: "openDialog", dialog: { kind: "remove", pluginId: row.id, hostId: null } })} />
       </View>
     </View>
   );

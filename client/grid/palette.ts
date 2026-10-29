@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import type { CellTone } from "../state/grid-model";
 
 export const SIZES = {
-  labelWidth: 250,
+  labelWidth: 280,
   columnWidth: 210,
   headerHeight: 112,
   sectionHeight: 30,

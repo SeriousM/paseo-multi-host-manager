@@ -8,7 +8,7 @@ export function Badge({ theme, label, severity = "muted" }: { theme: PluginTheme
   return (
     <Text
       numberOfLines={1}
-      style={{ fontSize: 10, color, borderColor: tint(color, 0.5), borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 0, overflow: "hidden" }}
+      style={{ flexShrink: 0, fontSize: 10, color, borderColor: tint(color, 0.5), borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 0, overflow: "hidden" }}
     >
       {label}
     </Text>
