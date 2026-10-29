@@ -97,7 +97,7 @@ describe("pluginSource", () => {
     expect(pluginSource(registry)).toEqual({ kind: "registry", installSource: "a/b", ref: null, pinned: false });
   });
 
-  it("names our own registry source in the registry id form", () => {
-    expect(OWN_INSTALL_SOURCE).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*\/paseo-multi-host-manager$/);
+  it("names our own registry source by the confirmed registry id", () => {
+    expect(OWN_INSTALL_SOURCE).toBe("seriousm/multi-host-manager-paseo-plugin");
   });
 });
