@@ -201,13 +201,19 @@ async function runItem(client: DaemonClient, features: readonly string[], planne
   }
 }
 
+/** Outcome per item index; the first `settle` of an index wins and is reported to the progress callback. */
+interface Slots {
+  outcomes: readonly (ApplyOutcome | undefined)[];
+  settle: (index: number, outcome: ApplyOutcome) => void;
+}
+
 /**
  * Applies one host's items in rank order over one connection. Slots are filled as items finish, so that a timeout or a
  * lost connection keeps what already happened and marks only the rest.
  */
-async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPolicy, baseTimeoutMs: number, group: { index: number; planned: Planned }[], slots: (ApplyOutcome | undefined)[]) {
+async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPolicy, baseTimeoutMs: number, group: { index: number; planned: Planned }[], slots: Slots) {
   const order = [...group].sort((a, b) => rank(a.planned.item) - rank(b.planned.item));
-  const settle = (index: number, outcome: ApplyOutcome) => void (slots[index] ??= outcome);
+  const { settle } = slots;
   for (const entry of order) if (entry.planned.rejected) settle(entry.index, entry.planned.rejected);
   if (order.every((entry) => entry.planned.rejected)) return;
 
@@ -219,8 +225,8 @@ async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPo
     run: async (hostClient, snapshot) => {
       for (const [position, entry] of order.entries()) {
         if (stopped) return;
-        if (slots[entry.index]) continue;
-        const blocker = order.slice(0, position).find((earlier) => slots[earlier.index]?.status !== "ok" && dependsOn(entry.planned.item, earlier.planned.item));
+        if (slots.outcomes[entry.index]) continue;
+        const blocker = order.slice(0, position).find((earlier) => slots.outcomes[earlier.index]?.status !== "ok" && dependsOn(entry.planned.item, earlier.planned.item));
         settle(entry.index, blocker ? { status: "skipped", dependsOn: blocker.planned.item.id } : await runItem(hostClient, snapshot.features, entry.planned));
       }
     },
@@ -234,12 +240,27 @@ async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPo
  * each host's items in the order given by `rank`, each host within its own timeout. The hub's own items run last, because
  * switching plugins off on the hub stops this plugin. A host failure marks that host's remaining items and never touches other hosts.
  * Items that need confirmation but lack it, and items that are malformed, are rejected without contacting a host.
- * `baseTimeoutMs` is the per-host base of hostTimeoutMs.
+ * `baseTimeoutMs` is the per-host base of hostTimeoutMs. `onSettle` hears every item as soon as its outcome is known.
  */
-export function applyItems(origin: OriginSession, home: string, policy: BrokerPolicy, items: ApplyItem[], baseTimeoutMs = APPLY_BASE_TIMEOUT_MS): Promise<ApplyResult[]> {
-  const slots: (ApplyOutcome | undefined)[] = items.map(() => undefined);
-  const results = (): ApplyResult[] =>
-    items.map((item, index) => ({ id: item.id, host: item.host, op: item.op, outcome: slots[index] ?? failed(hostFailure("host_error")) }));
+export function applyItems(
+  origin: OriginSession,
+  home: string,
+  policy: BrokerPolicy,
+  items: ApplyItem[],
+  baseTimeoutMs = APPLY_BASE_TIMEOUT_MS,
+  onSettle?: (result: ApplyResult) => void,
+): Promise<ApplyResult[]> {
+  const outcomes: (ApplyOutcome | undefined)[] = items.map(() => undefined);
+  const resultOf = (index: number, outcome: ApplyOutcome): ApplyResult => ({ id: items[index].id, host: items[index].host, op: items[index].op, outcome });
+  const slots: Slots = {
+    outcomes,
+    settle: (index, outcome) => {
+      if (outcomes[index]) return;
+      outcomes[index] = outcome;
+      onSettle?.(resultOf(index, outcome));
+    },
+  };
+  const results = (): ApplyResult[] => items.map((_item, index) => resultOf(index, outcomes[index] ?? failed(hostFailure("host_error"))));
 
   return withHostList(
     origin,
@@ -248,7 +269,7 @@ export function applyItems(origin: OriginSession, home: string, policy: BrokerPo
     async (client, hosts) => {
       const owners = items.map((item) => hosts.find((host) => isHost(host, item.host)));
       owners.forEach((owner, index) => {
-        if (!owner) slots[index] = failed(hostFailure("host_error", "unknown_host"));
+        if (!owner) slots.settle(index, failed(hostFailure("host_error", "unknown_host")));
       });
       const groups = hosts.map((host) => ({
         host,
@@ -263,7 +284,7 @@ export function applyItems(origin: OriginSession, home: string, policy: BrokerPo
       return results();
     },
     (_hubId, failure) => {
-      items.forEach((_item, index) => (slots[index] = failed(failure.error)));
+      items.forEach((_item, index) => slots.settle(index, failed(failure.error)));
       return results();
     },
   );

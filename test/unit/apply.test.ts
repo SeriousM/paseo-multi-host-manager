@@ -88,6 +88,18 @@ describe("apply order", () => {
     expect(firstL).toBeGreaterThan(lastW);
   });
 
+  it("reports every item to the progress callback once, as it settles", async () => {
+    const { session } = setup();
+    const settled: string[] = [];
+    const results = await applyItems(session, "no-home", policy, [
+      { id: "hub", host: "srv_hub", op: "setRow", rowId: "sys", value: "hub" },
+      { id: "w", host: "srv_W", op: "setRow", rowId: "sys", value: "w" },
+      { id: "x", host: "srv_nowhere", op: "setRow", rowId: "sys", value: "x" },
+    ], undefined, (result) => settled.push(result.id));
+    expect(settled).toEqual(["x", "w", "hub"]);
+    expect(results.map((result) => result.id)).toEqual(["hub", "w", "x"]);
+  });
+
   it("applies remote hosts before the hub's own items", async () => {
     const { session } = setup();
     await run(session, [

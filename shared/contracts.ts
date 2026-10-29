@@ -248,3 +248,24 @@ export const applyRpc = defineRpc({
   }),
   output: z.object({ results: z.array(applyResultSchema) }),
 });
+
+/**
+ * Starts applying staged items on the hub and returns at once. Paseo gives a plugin RPC 30 s on the daemon (60 s in the
+ * client), less than one host's install may take, so the UI starts a job and polls it instead of waiting on `mhm.apply`.
+ * One job runs at a time; a second start while one runs is refused.
+ */
+export const applyStartRpc = defineRpc({
+  name: "mhm.apply.start",
+  input: applyRpc.input,
+  output: z.discriminatedUnion("ok", [z.object({ ok: z.literal(true), jobId: z.string() }), z.object({ ok: z.literal(false), reason: z.literal("busy") })]),
+});
+
+/**
+ * Progress of an apply job: the items settled so far (in item order) and whether it finished. `unknown`: the hub's
+ * plugin has no such job (it restarted, or the job expired); a grid reload shows what changed.
+ */
+export const applyPollRpc = defineRpc({
+  name: "mhm.apply.poll",
+  input: z.object({ jobId: z.string().min(1) }),
+  output: z.object({ state: z.enum(["running", "done", "unknown"]), results: z.array(applyResultSchema) }),
+});
