@@ -11,5 +11,6 @@
   ],
   "requirements": {
     "paseo": ">=0.13.0"
-  }
+  },
+  "build": [["npm", "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"]]
 }
