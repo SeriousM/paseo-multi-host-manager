@@ -14,10 +14,8 @@ import type { GridHost, MhmState } from "../../client/state/types";
 const FEATURES = ["pluginManagement", "pluginSourceInstallation", "pluginSourceUpdates", "pluginSettings", "relayConfig"];
 const policy = { allowPrerelease: false, insecureLinkRegistrationIds: [] };
 
-/** Built as a variable, not a literal, so it fits both the current source shape and the one with `ref` and `pinned`. */
-function source(kind: GridPlugin["source"]["kind"], installSource: string | null): GridPlugin["source"] {
-  const value = { kind, installSource, ref: null, pinned: false };
-  return value;
+function source(kind: GridPlugin["source"]["kind"], installSource: string | null, ref: string | null = null, pinned = false): GridPlugin["source"] {
+  return { kind, installSource, ref, pinned };
 }
 
 function plugin(id: string, overrides: Partial<GridPlugin> = {}): GridPlugin {
@@ -149,6 +147,28 @@ describe("clipboard and paste planning", () => {
     expect(planPaste(staged, clip, "c").ok).toBe(true);
   });
 
+  it("installs from the copied host's own source with its pin and git ref, else from another host's", () => {
+    const git = plugin("mon", { version: "abc1234", source: source("git", "git:https://example.test/mon.git", "abc1234def", true) });
+    const state = run([host("hub", { isHub: true, data: data({ plugins: [git] }) }), host("a", { data: data({ plugins: [] }) })]);
+    expect(planPaste(state, { kind: "plugin", pluginId: "mon", sourceHost: "hub", plugin: git }, "a")).toEqual({
+      ok: true,
+      inputs: [{ op: "installPlugin", host: "reg-a", source: "git:https://example.test/mon.git", ref: "abc1234def", pluginId: "mon" }],
+      note: "install from git:https://example.test/mon.git; pinned at abc1234",
+    });
+    const dir = plugin("keep", { source: source("directory", null) });
+    const elsewhere = run([host("hub", { isHub: true, data: data({ plugins: [dir] }) }), host("a", { data: data({ plugins: [] }) }), host("b", { data: data({ plugins: [plugin("keep")] }) })]);
+    expect(planPaste(elsewhere, { kind: "plugin", pluginId: "keep", sourceHost: "hub", plugin: dir }, "a")).toMatchObject({ ok: true, inputs: [{ source: "npm:keep" }], note: "install from npm:keep; installs the latest release" });
+  });
+
+  it("never stages a settings document through the grid paste: the editor does that", () => {
+    const doc = { kind: "doc" as const, pluginId: OWN_PLUGIN_ID, settingsId: "s", sourceHost: "hub", version: 1, values: {}, maskedPaths: [] };
+    const state = run([hub, host("a")], { type: "copyDoc", entry: doc }, { type: "togglePasteTarget", hostId: "a" });
+    expect(mhmReducer(state, { type: "paste", hostId: "a" }).staged).toEqual([]);
+    const pasted = mhmReducer(state, { type: "pasteTargets" });
+    expect(pasted.staged).toEqual([]);
+    expect(pasted.pasteTargets).toEqual([]);
+  });
+
   it("refuses a directory plugin that no host can hand on", () => {
     const dir = plugin("local", { source: source("directory", null) });
     const state = run([host("hub", { isHub: true, data: data({ plugins: [dir] }) }), host("a", { data: data({ plugins: [] }) })]);
@@ -276,6 +296,43 @@ describe("staging queue", () => {
     expect(applyInput(state.staged, policy).items.map((item) => item.id)).toEqual(["reg-a/row:sys", "reg-a/plugin:k:version"]);
     state = mhmReducer(state, { type: "clearApplied" });
     expect(state.staged.map((entry) => entry.item.id)).toEqual(["reg-a/row:sys", "reg-a/plugin:k:version"]);
+  });
+
+  it("resends only pending, failed and skipped items; ignored and unknown ones wait", () => {
+    const inputs = ["mcp", "sys", "hooks"].map((rowId) => ({ op: "setRow" as const, host: "reg-a", rowId, value: false }));
+    let state = run([hub, host("a")], { type: "stage", inputs }, { type: "applyStarted" });
+    state = mhmReducer(state, {
+      type: "applyFinished",
+      results: [
+        { id: "reg-a/row:mcp", host: "reg-a", op: "setRow", outcome: { status: "ignored", paths: ["mcp.injectIntoAgents"] } },
+        { id: "reg-a/row:sys", host: "reg-a", op: "setRow", outcome: { status: "failed", error: { code: "host_error", message: "boom" } } },
+        { id: "reg-a/row:hooks", host: "reg-a", op: "setRow", outcome: { status: "ok" } },
+      ],
+    });
+    expect(applyInput(state.staged, policy).items.map((item) => item.id)).toEqual(["reg-a/row:sys"]);
+    state = mhmReducer(state, { type: "applyStarted" });
+    expect(state.staged.map((entry) => entry.status)).toEqual(["ignored", "applying", "ok"]);
+  });
+
+  it("keeps a written document's validity-unknown marker past clearApplied until the plugin reloads or it is dismissed", () => {
+    const write = { op: "writeSettingsDoc" as const, host: "reg-a", pluginId: "keep", settingsId: "display", expectedRevision: "r1", version: 1, values: {} };
+    const docOk = { status: "ok" as const, revision: "r2", validity: "unknown" as const, reloadSuggested: true, keptMaskedPaths: ["token"], backedUp: true };
+    const withKeep = host("a", { data: data({ plugins: [plugin("keep")] }) });
+    let state = run([hub, withKeep], { type: "stage", inputs: [write] }, { type: "applyStarted" });
+    state = mhmReducer(state, { type: "applyFinished", results: [{ id: "reg-a/doc:keep/display", host: "reg-a", op: "writeSettingsDoc", outcome: docOk }] });
+    state = mhmReducer(state, { type: "clearApplied" });
+    expect(state.staged).toEqual([]);
+    expect(state.writtenDocs).toEqual([{ host: "reg-a", pluginId: "keep", settingsId: "display", op: "writeSettingsDoc", keptMaskedPaths: ["token"], backedUp: true }]);
+    const row = pluginRows(state.hosts).find((candidate) => candidate.id === "keep");
+    if (!row) throw new Error("no keep row");
+    expect(pluginCellView(state, row, "a")).toMatchObject({ tone: "attention", detail: expect.stringContaining("validity unknown") });
+    expect(mhmReducer(state, { type: "dismissWritten", host: "reg-a", pluginId: "keep", settingsId: "display" }).writtenDocs).toEqual([]);
+    state = mhmReducer(state, { type: "stage", inputs: [{ op: "reloadPlugin", host: "reg-a", pluginId: "keep" }] });
+    state = mhmReducer(state, { type: "applyStarted" });
+    const failedReload = mhmReducer(state, { type: "applyFinished", results: [{ id: "reg-a/plugin:keep:reload", host: "reg-a", op: "reloadPlugin", outcome: { status: "failed", error: { code: "host_error", message: "x" } } }] });
+    expect(failedReload.writtenDocs).toHaveLength(1);
+    state = mhmReducer(state, { type: "applyFinished", results: [{ id: "reg-a/plugin:keep:reload", host: "reg-a", op: "reloadPlugin", outcome: { status: "ok", pluginId: "keep" } }] });
+    expect(state.writtenDocs).toEqual([]);
   });
 
   it("treats a lost response after switching the hub's plugins off as unknown, other transport errors as failures", () => {

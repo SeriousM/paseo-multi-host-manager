@@ -62,16 +62,17 @@ function pastePlugin(state: Pick<MhmState, "hosts" | "staged">, clip: Extract<Cl
   const current = hostData(target)?.plugins.find((plugin) => plugin.id === clip.pluginId);
   const host = hostRef(target);
   if (!current) {
-    // Any host may hold the portable source, not only the one copied from.
-    const portable = pluginRows(state.hosts).find((row) => row.id === clip.pluginId)?.source ?? null;
+    // The copied host's own source reproduces its version (`pinned`); another host's source is the fallback when the
+    // copied one cannot be handed on (a directory install there).
+    const portable = clip.plugin.source.installSource !== null ? clip.plugin.source : (pluginRows(state.hosts).find((row) => row.id === clip.pluginId)?.source ?? null);
     const source = portable?.installSource ?? null;
     if (portable === null || source === null) return refuse("local directory source: exists only on its own host");
     if (!hasFeature(target, "pluginSourceInstallation")) return refuse("host lacks pluginSourceInstallation");
     if (!pluginsOn(state, target)) return refuse('plugins are switched off on this host (stage "Plugins enabled" first)');
-    // `ref` (a git commit) arrives with the next contract revision of the plugin source.
-    const ref = "ref" in portable && typeof portable.ref === "string" ? portable.ref : undefined;
+    const ref = portable.ref ?? undefined;
     const input: StageInput = ref === undefined ? { op: "installPlugin", host, source, pluginId: clip.pluginId } : { op: "installPlugin", host, source, ref, pluginId: clip.pluginId };
-    return { ok: true, inputs: [input], note: `install from ${source}${ref ? ` at ${ref.slice(0, 7)}` : ""}` };
+    const pin = portable.pinned ? `pinned${ref ? ` at ${ref.slice(0, 7)}` : ""}` : "installs the latest release";
+    return { ok: true, inputs: [input], note: `install from ${source}; ${pin}` };
   }
   const inputs: StageInput[] = [];
   const notes: string[] = [];
