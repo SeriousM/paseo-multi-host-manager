@@ -53,7 +53,8 @@ function okOrFailure<Shape extends z.ZodRawShape>(shape: Shape) {
 }
 
 // Path segments of the plugin-settings document location; also keeps `..` and separators out.
-const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+// No trailing dot: NTFS drops it, so `x.` would alias the directory `x`.
+export const SAFE_SEGMENT = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9_-])?$/;
 const segment = z.string().regex(SAFE_SEGMENT);
 
 const documentRef = { pluginId: segment, settingsId: segment };

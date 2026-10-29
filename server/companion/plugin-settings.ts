@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { z } from "zod";
 import {
   OWN_PLUGIN_ID,
+  SAFE_SEGMENT,
   type CompanionFailure,
   type settingsListRpc,
   type settingsReadRpc,
@@ -14,9 +15,6 @@ import { atomicWrite, failure, readBytes, revisionOf, type CompanionContext } fr
 
 type Ok<Rpc extends { output: z.ZodType }> = Extract<z.output<Rpc["output"]>, { ok: true }>;
 type DocumentRef = { pluginId: string; settingsId: string };
-
-// Same pattern as the RPC contracts; repeated here so a caller that bypasses zod still cannot traverse.
-const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 function settingsRoot(home: string): string {
   return path.join(home, "plugin-settings");
@@ -30,6 +28,28 @@ function locate(home: string, ref: DocumentRef): { file: string } | { error: Com
   const file = path.resolve(root, ref.pluginId, `${ref.settingsId}.json`);
   if (path.relative(root, file).startsWith("..")) return { error: failure("invalid_input", "Path escapes plugin-settings") };
   return { file };
+}
+
+function realpathOrNull(target: string): string | null {
+  try {
+    return fs.realpathSync.native(target);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+/**
+ * True when `file` belongs to our own settings directory under any alias: other casing (NTFS, APFS)
+ * or a junction/symlink. The realpath of an existing path carries the on-disk casing and target.
+ */
+function isOwnDocument(home: string, pluginId: string, file: string): boolean {
+  if (pluginId.toLowerCase() === OWN_PLUGIN_ID) return true;
+  const own = realpathOrNull(path.join(settingsRoot(home), OWN_PLUGIN_ID));
+  if (own === null) return false;
+  return [realpathOrNull(path.dirname(file)), realpathOrNull(file)].some(
+    (real) => real !== null && (real === own || real.startsWith(`${own}${path.sep}`)),
+  );
 }
 
 function parseDocument(bytes: Buffer): { version: number; values: Json } | null {
@@ -85,22 +105,24 @@ export function readSettings(ctx: CompanionContext, ref: DocumentRef): Ok<typeof
   };
 }
 
-async function checkWriteAllowed(ctx: CompanionContext, pluginId: string): Promise<CompanionFailure | null> {
+async function locateWritable(ctx: CompanionContext, ref: DocumentRef): Promise<{ file: string } | { error: CompanionFailure }> {
   if (!(await ctx.consent()).allowPluginSettingsWrites) {
-    return failure("capability_disabled", "This host has not enabled plugin settings writes (allowPluginSettingsWrites).");
+    return { error: failure("capability_disabled", "This host has not enabled plugin settings writes (allowPluginSettingsWrites).") };
   }
+  const located = locate(ctx.home, ref);
+  if ("error" in located) return located;
   // Our own consent document must only be changed by the host's user, never through this RPC.
-  if (pluginId === OWN_PLUGIN_ID) return failure("not_allowed", "The companion's own settings cannot be written remotely.");
-  return null;
+  if (isOwnDocument(ctx.home, ref.pluginId, located.file)) {
+    return { error: failure("not_allowed", "The companion's own settings cannot be written remotely.") };
+  }
+  return located;
 }
 
 export async function writeSettings(
   ctx: CompanionContext,
   input: DocumentRef & { expectedRevision: string; version: number; values: Json },
 ): Promise<Ok<typeof settingsWriteRpc> | CompanionFailure> {
-  const denied = await checkWriteAllowed(ctx, input.pluginId);
-  if (denied) return denied;
-  const located = locate(ctx.home, input);
+  const located = await locateWritable(ctx, input);
   if ("error" in located) return located.error;
 
   // Re-read and compare immediately before writing; everything below is synchronous.
@@ -125,9 +147,7 @@ export async function restoreSettings(
   ctx: CompanionContext,
   input: DocumentRef & { expectedRevision: string },
 ): Promise<Ok<typeof settingsRestoreRpc> | CompanionFailure> {
-  const denied = await checkWriteAllowed(ctx, input.pluginId);
-  if (denied) return denied;
-  const located = locate(ctx.home, input);
+  const located = await locateWritable(ctx, input);
   if ("error" in located) return located.error;
 
   const before = readBytes(located.file);

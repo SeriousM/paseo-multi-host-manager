@@ -206,9 +206,38 @@ describe("plugin settings documents", () => {
   });
 
   it("refuses to write the companion's own settings", async () => {
-    const result = await writeSettings(ctx, { pluginId: "paseo-multi-host-manager", settingsId: "companion", expectedRevision: "missing", version: 1, values: { allowConfigWrites: true } });
+    const result = await writeSettings(ctx, { pluginId: "paseo-multi-host-manager", settingsId: "companion", expectedRevision: "missing", version: 1, values: { allowPluginSettingsWrites: true } });
     expect(result).toMatchObject({ ok: false, code: "not_allowed" });
     expect(fs.existsSync(settingsFile("paseo-multi-host-manager", "companion"))).toBe(false);
+  });
+
+  it("refuses the own settings through a case alias, for write and restore", async () => {
+    const alias = { pluginId: "PASEO-Multi-Host-Manager", settingsId: "companion" };
+    expect(await writeSettings(ctx, { ...alias, expectedRevision: "missing", version: 1, values: { allowPluginSettingsWrites: true } })).toMatchObject({ ok: false, code: "not_allowed" });
+    expect(await restoreSettings(ctx, { ...alias, expectedRevision: "missing" })).toMatchObject({ ok: false, code: "not_allowed" });
+    expect(fs.existsSync(path.join(home, "plugin-settings"))).toBe(false);
+  });
+
+  it("rejects a trailing-dot alias of the own settings directory", async () => {
+    const alias = { pluginId: "paseo-multi-host-manager.", settingsId: "companion" };
+    expect(await writeSettings(ctx, { ...alias, expectedRevision: "missing", version: 1, values: { allowPluginSettingsWrites: true } })).toMatchObject({ ok: false, code: "invalid_input" });
+    expect(await writeSettings(ctx, { pluginId: "other-plugin", settingsId: "companion.", expectedRevision: "missing", version: 1, values: {} })).toMatchObject({ ok: false, code: "invalid_input" });
+    expect(settingsWriteRpc.input.safeParse({ ...alias, expectedRevision: "missing", version: 1, values: {} }).success).toBe(false);
+    expect(fs.existsSync(path.join(home, "plugin-settings"))).toBe(false);
+  });
+
+  it("refuses the own settings through a directory junction or symlink", async () => {
+    const ownRevision = writeSettingsFile("paseo-multi-host-manager", "companion", { version: 1, values: { allowPluginSettingsWrites: true } });
+    const ownFile = settingsFile("paseo-multi-host-manager", "companion");
+    fs.symlinkSync(path.dirname(ownFile), path.join(home, "plugin-settings", "linked-plugin"), "junction");
+    const linked = { pluginId: "linked-plugin", settingsId: "companion" };
+    expect(await writeSettings(ctx, { ...linked, expectedRevision: ownRevision, version: 1, values: { allowPluginSettingsWrites: false } })).toMatchObject({ ok: false, code: "not_allowed" });
+    expect(await restoreSettings(ctx, { ...linked, expectedRevision: ownRevision })).toMatchObject({ ok: false, code: "not_allowed" });
+    expect(revisionOf(fs.readFileSync(ownFile))).toBe(ownRevision);
+  });
+
+  it("accepts one-character ids", async () => {
+    expect(await writeSettings(ctx, { pluginId: "a", settingsId: "b", expectedRevision: "missing", version: 1, values: {} })).toMatchObject({ ok: true });
   });
 
   it("writes atomically with a backup, then restores it", async () => {
