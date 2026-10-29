@@ -1,12 +1,11 @@
 import { Pressable, Text, View } from "react-native";
 import type { LinkKind } from "../../shared/contracts";
 import { hostSummary } from "../state/grid-model";
-import { withInsecureLink } from "../state/policy";
 import type { GridHost } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
 import { SIZES, severityColor } from "./palette";
 import type { Severity } from "./palette";
-import { Badge, Button } from "./primitives";
+import { Badge } from "./primitives";
 
 const LINK_BADGE: Record<LinkKind, [Severity, string]> = {
   relay: ["ok", "relay E2EE"],
@@ -30,8 +29,6 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
   const summary = hostSummary(host);
   const { colors } = theme;
   const [linkSeverity, linkLabel] = LINK_BADGE[summary.link];
-  // Only saved hosts can be allowed: the policy lists registration ids.
-  const allowId = summary.failure?.code === "insecure_link" ? host.registrationId : null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -59,9 +56,6 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
         <Text numberOfLines={2} style={{ color: severityColor(theme, "bad"), fontSize: 11 }}>
           {summary.failure.message}
         </Text>
-      ) : null}
-      {allowId !== null ? (
-        <Button theme={theme} label="Allow this unencrypted link" onPress={() => void controller.savePolicy(withInsecureLink(controller.policy, allowId, true))} />
       ) : null}
     </Pressable>
   );

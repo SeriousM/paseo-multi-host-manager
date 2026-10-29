@@ -250,21 +250,25 @@ export function rowCellView(state: MhmState, rowId: string, hostId: string): Cel
   const base = { ref, readOnly, staged, isSource, selected };
   if (blocked || !cell || cell.state !== "ok") {
     const unavailable = blocked ?? { code: cell?.state ?? "absent", message: ROW_STATE_REASONS[cell?.state ?? "absent"] ?? "No value" };
-    const text = cell?.state === "protected" ? "never shown" : "-";
-    return { ...base, text: staged ? stagedRowText(staged, text, row) : text, detail: staged ? outcomeText(staged) : unavailable.message, masked: false, unavailable, differsFromSource: false, copyable: false, tone: tone(staged, false, false) };
+    const text = !blocked && cell?.state === "protected" ? "never shown" : "-";
+    // A blocked host says why once, in its header; its cells stay quiet.
+    const detail = staged ? outcomeText(staged) : blocked ? null : unavailable.message;
+    return { ...base, text: staged ? stagedRowText(staged, text, row) : text, detail, masked: false, unavailable, differsFromSource: false, copyable: false, tone: tone(staged, false, false) };
   }
   const clip = state.clipboard;
   const differs = clip?.kind === "row" && clip.rowId === rowId && clip.sourceHost !== hostId && !sameJson(clip.value, cell.value);
   const masked = cell.maskedPaths.length > 0;
   const text = formatValue(row, cell.value);
+  // Providers paste with their masked keys: the target keeps its own value at each of them.
+  const maskedNote = rowId === "prov" ? "secrets masked; each host keeps its own" : "contains masked secrets";
   return {
     ...base,
     text: staged ? stagedRowText(staged, text, row) : text,
-    detail: staged ? outcomeText(staged) : masked ? "contains masked secrets" : null,
+    detail: staged ? outcomeText(staged) : masked ? maskedNote : null,
     masked,
     unavailable: null,
     differsFromSource: differs,
-    copyable: !readOnly && !masked,
+    copyable: !readOnly && (!masked || rowId === "prov"),
     tone: tone(staged, isSource, differs),
   };
 }
@@ -288,7 +292,7 @@ export function pluginCellView(state: MhmState, row: PluginRow, hostId: string):
   const base = { ref, readOnly: false, staged, isSource, selected, masked: false };
   const stagedText = staged ? (STAGED_PLUGIN_TEXT[staged.item.op]?.(staged.item, current) ?? "staged") : null;
   if (blocked) {
-    return { ...base, text: stagedText ?? "unknown", detail: staged ? outcomeText(staged) : blocked.message, unavailable: blocked, differsFromSource: false, copyable: false, tone: tone(staged, false, false) };
+    return { ...base, text: stagedText ?? "-", detail: staged ? outcomeText(staged) : null, unavailable: blocked, differsFromSource: false, copyable: false, tone: tone(staged, false, false) };
   }
   const clip = state.clipboard;
   const differs =
