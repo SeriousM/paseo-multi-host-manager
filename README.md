@@ -27,9 +27,11 @@ Applying staged changes, and the settings document editor:
 | --- | --- |
 | ![Staging drawer with the result per item](assets/screenshot-apply.png) | ![Another plugin's settings document with masked secrets](assets/screenshot-editor.png) |
 
-The compact view for narrow screens, two hosts side by side:
+The compact view for narrow screens, and adding a host to the hub from its pairing link:
 
-![Two hosts compared row by row](assets/screenshot-compact.png)
+| Compact | Add host |
+| --- | --- |
+| ![Two hosts compared row by row](assets/screenshot-compact.png) | ![The Add host dialog with the link hidden in a password field](assets/screenshot-add-host.png) |
 
 ## What it does
 

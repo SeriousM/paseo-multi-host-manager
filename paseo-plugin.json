@@ -7,7 +7,8 @@
     "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-baseline.png",
     "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-apply.png",
     "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-editor.png",
-    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-compact.png"
+    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-compact.png",
+    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-add-host.png"
   ],
   "requirements": {
     "paseo": ">=0.13.0"
