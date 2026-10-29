@@ -23,7 +23,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:integration": "cross-env MHM_TESTENV=1 vitest run --config vitest.integration.config.ts",
-    "pack:check": "npm pack --dry-run"
+    "matrix": "node testenv/matrix.mjs",
+    "pack:check": "node tools/pack-check.mjs"
   },
   "dependencies": {
     "@getpaseo/client": "0.13.0"

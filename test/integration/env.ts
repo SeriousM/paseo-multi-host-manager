@@ -1,6 +1,5 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { connectOriginClient, connectRoutedClient } from "../../server/broker/daemon-client";
 import type { DaemonClient, RoutedClient } from "../../server/broker/daemon-client";
@@ -15,7 +14,7 @@ const WSL_HOME = "~/mhm-testenv/home";
 
 interface State {
   hubHosts: { key: string; label: string; serverId: string | null; registrationId: string }[];
-  windows: { home: string };
+  windows: { home: string; exe: string };
 }
 
 export function readState(): State {
@@ -34,7 +33,7 @@ export function wsl(script: string): string {
 }
 
 export function relayPairing(): { endpoint: string; key: string } {
-  const exe = path.join(process.env.LOCALAPPDATA ?? os.homedir(), "Programs", "Paseo", "resources", "bin", "paseo.cmd");
+  const exe = readState().windows.exe;
   const r = spawnSync("cmd", ["/c", exe, "daemon", "pair", "--home", readState().windows.home, "--relay", "--json"], { encoding: "utf8", windowsHide: true });
   const uri = new URL(JSON.parse(r.stdout).connectionUri);
   return { endpoint: uri.host, key: uri.searchParams.get("key") ?? "" };
