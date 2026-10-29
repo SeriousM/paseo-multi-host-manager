@@ -175,9 +175,12 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       const [check] = await apply({ id: "c", host: ids.L, op: "updatePlugin", pluginId: KEEP_AWAKE_ID, checkOnly: true });
       expect(check.outcome).toMatchObject({ status: "ok", updateOutcome: "update" });
       expect((await find())?.version).toBe("0.1.2");
+      // Whatever the newest release is when the matrix runs (0.1.3 when this was written, 0.1.4 since 2026-10-29).
       const [update] = await apply({ id: "u", host: ids.L, op: "updatePlugin", pluginId: KEEP_AWAKE_ID });
-      expect(update.outcome).toMatchObject({ status: "ok", updateOutcome: "updated", version: "0.1.3" });
-      expect(await find()).toMatchObject({ version: "0.1.3", enabled: true, status: "running" });
+      expect(update.outcome).toMatchObject({ status: "ok", updateOutcome: "updated" });
+      const updated = update.outcome.status === "ok" ? update.outcome.version : null;
+      expect(updated).toMatch(/^0\.1\.([3-9]|\d{2,})$|^(0\.[2-9]|[1-9])/);
+      expect(await find()).toMatchObject({ version: updated, enabled: true, status: "running" });
     }, 180_000);
 
     it("removes it after confirmation", async () => {
