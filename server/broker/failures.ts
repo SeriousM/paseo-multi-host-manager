@@ -7,7 +7,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   host_offline: "Host is offline or not reachable through the hub.",
   authentication_failed: "The hub could not authenticate to this host. Check the saved host's password.",
   unsupported_capability: "This host's Paseo version lacks a required capability.",
-  insecure_link: "The hub reaches this host over an unencrypted connection. Allow it explicitly to continue.",
+  insecure_link: "The hub reaches this host over a connection that is not known to be encrypted. Allow it explicitly to continue.",
   below_minimum: "This host runs a Paseo version below the supported minimum.",
   prerelease_blocked: "This host runs a Paseo pre-release. Allow pre-releases to continue.",
   capability_disabled: "This capability is disabled on the host.",

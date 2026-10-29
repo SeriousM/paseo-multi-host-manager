@@ -9,8 +9,11 @@ export const pingRpc = defineRpc({
   output: z.object({ ok: z.literal(true) }),
 });
 
-/** Transport class of a saved host's connection. The connection itself is never exposed. */
-export const linkKindSchema = z.enum(["relay", "ssh", "loopback", "tcp-plain", "unknown"]);
+/**
+ * Transport class of a saved host's connection. The connection itself is never exposed.
+ * `tcp-plain` and `unknown` are blocked unless the user allows the host explicitly.
+ */
+export const linkKindSchema = z.enum(["relay", "ssh", "loopback", "tls", "tcp-plain", "unknown"]);
 export type LinkKind = z.infer<typeof linkKindSchema>;
 
 export const capabilitySnapshotSchema = z.object({

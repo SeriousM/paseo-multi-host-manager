@@ -16,12 +16,13 @@ const LOOPBACK_HOST = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/i;
 
 /**
  * Classifies the daemon's redacted `targetDescription` (see parseHostTarget in @getpaseo/protocol).
- * `tcp://` hides whether TLS is on, so a non-loopback tcp target counts as plain.
+ * `wss://` is TLS. `tcp://` hides whether TLS is on, so a non-loopback tcp target counts as plain.
  */
 export function classifyLink(targetDescription: string): LinkKind {
   const scheme = /^([a-z]+):\/\//.exec(targetDescription)?.[1];
   if (scheme === "relay") return "relay";
   if (scheme === "ssh") return "ssh";
+  if (scheme === "wss") return "tls";
   if (scheme === "unix" || scheme === "pipe") return "loopback";
   if (scheme !== "tcp" && scheme !== "ws") return "unknown";
   const authority = targetDescription.slice(scheme.length + 3).split("/")[0];

@@ -47,7 +47,8 @@ async function connectAndRun<T>(origin: DaemonClient, host: HostEntry, request: 
  * On timeout the result is `host_offline`; a still-running call is torn down when the origin closes.
  */
 export async function callHost<T>(origin: DaemonClient, host: HostEntry, request: HostRequest<T>): Promise<HostResult<T>> {
-  if (host.link === "tcp-plain" && !request.policy.insecureLinkHostIds.includes(host.id)) {
+  const unverifiedLink = host.link === "tcp-plain" || host.link === "unknown";
+  if (unverifiedLink && !request.policy.insecureLinkHostIds.includes(host.id)) {
     return { ok: false, error: hostFailure("insecure_link") };
   }
   if (host.unavailable) return { ok: false, error: host.unavailable };

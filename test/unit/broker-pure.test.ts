@@ -20,7 +20,9 @@ describe("classifyLink", () => {
     ["ws://127.0.0.1:6768", "loopback"],
     [`tcp://${SECRETS.tcpHost}:6768`, "tcp-plain"],
     ["ws://box.lan:6767", "tcp-plain"],
-    ["wss://box.example", "unknown"],
+    ["wss://box.example", "tls"],
+    ["wss://127.0.0.1:6768", "tls"],
+    ["http://box.example", "unknown"],
     ["something else", "unknown"],
   ])("%s -> %s", (description, kind) => {
     expect(classifyLink(description)).toBe(kind);

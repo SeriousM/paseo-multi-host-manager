@@ -77,14 +77,19 @@ describe("callHost", () => {
     expect(origin.close).not.toHaveBeenCalled();
   });
 
-  it("blocks plain tcp links unless the host is opted out", async () => {
-    const plain: HostEntry = { ...remote, link: "tcp-plain" };
-    expect(await callHost(origin.client, plain, request)).toMatchObject({ ok: false, error: { code: "insecure_link" } });
+  it.each(["tcp-plain", "unknown"] as const)("blocks %s links unless the host is opted out", async (link) => {
+    const unverified: HostEntry = { ...remote, link };
+    expect(await callHost(origin.client, unverified, request)).toMatchObject({ ok: false, error: { code: "insecure_link" } });
     expect(routed).not.toHaveBeenCalled();
 
     routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).client);
-    const allowed = await callHost(origin.client, plain, { ...request, policy: { ...policy, insecureLinkHostIds: ["srv_W"] } });
+    const allowed = await callHost(origin.client, unverified, { ...request, policy: { ...policy, insecureLinkHostIds: ["srv_W"] } });
     expect(allowed.ok).toBe(true);
+  });
+
+  it.each(["relay", "ssh", "loopback", "tls"] as const)("allows %s links without an opt-out", async (link) => {
+    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).client);
+    expect((await callHost(origin.client, { ...remote, link }, request)).ok).toBe(true);
   });
 
   it("returns the directory failure without routing", async () => {
