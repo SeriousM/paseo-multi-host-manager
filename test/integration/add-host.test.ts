@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { gridLoadRpc, hostAddRpc } from "../../shared/contracts";
+import { gridLoadRpc, hostAddRpc, hostRemoveRpc } from "../../shared/contracts";
 import type { DaemonClient } from "../../server/broker/daemon-client";
 import { connectHub, enabled, PLUGIN_ID } from "./env";
 
@@ -8,11 +8,12 @@ import { connectHub, enabled, PLUGIN_ID } from "./env";
 const PORT = 6799;
 const LABEL = "mhm-test-added";
 
-describe.skipIf(!enabled)("add host through the hub plugin", () => {
+describe.skipIf(!enabled)("add and remove hosts through the hub plugin", () => {
   let hub: DaemonClient;
   const password = randomBytes(12).toString("hex");
   const policy = { allowPrerelease: false, insecureLinkRegistrationIds: [] };
   const add = async (input: Record<string, unknown>) => hostAddRpc.output.parse(await hub.invokePluginRpc(PLUGIN_ID, hostAddRpc.name, { ...policy, ...input }));
+  const remove = async (registrationId: string) => hostRemoveRpc.output.parse(await hub.invokePluginRpc(PLUGIN_ID, hostRemoveRpc.name, { ...policy, registrationId }));
   const savedCount = async () => (await hub.listHosts()).hosts.length;
 
   beforeAll(async () => {
@@ -32,10 +33,11 @@ describe.skipIf(!enabled)("add host through the hub plugin", () => {
     expect(await savedCount()).toBe(before);
   });
 
-  it("saves a host, shows it in grid.load, and removes it again", { timeout: 60_000 }, async () => {
+  it("saves a host, shows it in grid.load, and removes it again through mhm.hosts.remove", { timeout: 60_000 }, async () => {
     const result = await add({ connection: `tcp://127.0.0.1:${PORT}?password=${password}`, label: LABEL });
     if (!result.ok) throw new Error(`add failed: ${result.error.code}`);
     const { registrationId } = result.host;
+    let removed = false;
     try {
       expect(result.host).toMatchObject({ label: LABEL, link: "loopback", serverId: null });
       expect(result.host.status).not.toBe("online");
@@ -45,9 +47,22 @@ describe.skipIf(!enabled)("add host through the hub plugin", () => {
       const column = grid.hosts.find((host) => host.registrationId === registrationId);
       expect(column).toMatchObject({ id: registrationId, label: LABEL, link: "loopback", isHub: false, result: { ok: false } });
       expect(JSON.stringify(grid)).not.toContain(password);
+
+      // The host is offline: removal only touches the hub's saved list, so it works anyway.
+      expect(await remove(registrationId)).toEqual({ ok: true });
+      removed = true;
+      expect((await hub.listHosts()).hosts.some((host) => host.registrationId === registrationId)).toBe(false);
+      const after = gridLoadRpc.output.parse(await hub.invokePluginRpc(PLUGIN_ID, gridLoadRpc.name, policy));
+      expect(after.hosts.some((host) => host.registrationId === registrationId)).toBe(false);
     } finally {
-      await hub.removeHost(registrationId);
+      if (!removed) await hub.removeHost(registrationId).catch(() => undefined);
     }
-    expect((await hub.listHosts()).hosts.some((host) => host.registrationId === registrationId)).toBe(false);
+  });
+
+  it("refuses to remove the hub itself", async () => {
+    const before = await savedCount();
+    const hubId = (await hub.listHosts()).self.serverId;
+    expect(await remove(hubId)).toMatchObject({ ok: false, error: { code: "invalid_item", detail: "self_target" } });
+    expect(await savedCount()).toBe(before);
   });
 });

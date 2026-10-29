@@ -102,6 +102,18 @@ export const hostAddRpc = defineRpc({
 export type HostAddInput = z.input<typeof hostAddRpc.input>;
 export type HostAddResult = z.infer<typeof hostAddRpc.output>;
 
+/**
+ * Removes a saved host from the hub daemon's directory (`paseo host rm`), a direct action, not staged. It changes only
+ * the hub's saved connection: nothing on that host. Works for hosts the hub cannot reach (wrong password, offline).
+ * The hub itself, or an id that is not a saved host, is `invalid_item` (`self_target`, `unknown_host`).
+ */
+export const hostRemoveRpc = defineRpc({
+  name: "mhm.hosts.remove",
+  input: brokerPolicySchema.extend({ registrationId: z.string().min(1).max(200) }),
+  output: z.discriminatedUnion("ok", [z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: hostFailureSchema })]),
+});
+export type HostRemoveResult = z.infer<typeof hostRemoveRpc.output>;
+
 export const ROW_CELL_STATES = ["ok", "absent", "needs_companion", "needs_newer_paseo", "unreadable", "protected"] as const;
 
 /** One row on one host. `value` is null unless `state` is `ok`; secret-looking strings are already masked. */

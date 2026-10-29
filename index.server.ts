@@ -1,6 +1,7 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
-import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc, hostAddRpc, hostsOverviewRpc, pingRpc } from "./shared/contracts";
+import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc, hostAddRpc, hostRemoveRpc, hostsOverviewRpc, pingRpc } from "./shared/contracts";
 import { addHost } from "./server/broker/host-add";
+import { removeHost } from "./server/broker/host-remove";
 import { paseoHome } from "./server/broker/origin";
 import { connectHubOrigin, OriginSession } from "./server/broker/origin-session";
 import { hostsOverview } from "./server/broker/overview";
@@ -17,8 +18,9 @@ export default function contribute(server: PluginServerContext) {
   server.handle(pingRpc, () => ({ ok: true as const }));
   server.handle(hostsOverviewRpc, async (policy) => ({ hosts: await hostsOverview(origin, home, policy) }));
   server.handle(gridLoadRpc, async (policy) => ({ hosts: await loadGrid(origin, home, policy) }));
-  // A direct action, not staged: saving a host changes only the hub's directory, and the user confirms it in its dialog.
+  // Direct actions, not staged: they change only the hub's own saved-host list, and the user confirms each in its dialog.
   server.handle(hostAddRpc, (input) => addHost(origin, home, input));
+  server.handle(hostRemoveRpc, (input) => removeHost(origin, home, input));
   // The UI applies through a job: a plugin RPC has 30 s on the daemon, one host's install can take longer. There is no
   // synchronous apply handler, so nothing can bypass the job's one-at-a-time guard.
   const jobs = new ApplyJobs();
