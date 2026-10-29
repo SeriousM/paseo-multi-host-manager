@@ -11,7 +11,7 @@ no addresses or passwords.
 
 Up front: I used AI to write a good part of the code and to help with the docs. The ideas, the
 feature list and the trade-offs are mine. Read the source like any third-party code, especially
-before you turn on plugin settings writes on a host.
+the part that writes other plugins' settings documents.
 
 ## Screens
 
@@ -81,13 +81,13 @@ What it reads and writes, by tier:
   confirmed. It adds hosts to the hub's saved-host list when you use Add host (`addHost`, the call
   `paseo host add` makes), and removes hosts from it when you use Remove saved host (`removeHost`,
   as `paseo host rm`; nothing on that host changes).
-- Tier B, off by default, per target host. With `allowPluginSettingsWrites` switched on in this
-  plugin's settings on the target host, the companion there writes other plugins' settings
-  documents. It checks the document has not changed since it was read, keeps a `.bak` (restore swaps
-  the two), writes atomically with mode 0600, and keeps masked values as the target had them. The
-  hub never offers a toggle for this; the consent belongs to whoever runs the target. Anyone who can
-  authenticate to that host can switch it, though. The plugin refuses to write its own settings
-  remotely.
+- Tier B, plugin settings writes. When you apply a settings-document change, the companion on that
+  host writes the other plugin's document in `plugin-settings/`, on any managed host. It checks the
+  document has not changed since it was read, keeps a `.bak` (restore swaps the two), writes
+  atomically with mode 0600, and keeps masked values as the target had them. Nothing is written
+  before Apply, and the plugin refuses to write its own settings remotely. There used to be a
+  per-host opt-in for this; it had no UI and anyone who could reach the host could flip it, so it is
+  gone.
 
 Secrets are masked by key name (`token`, `password`, `dsn`, `connectionString` and similar) and by
 value shape (API key prefixes, bearer tokens, URLs with a user or password). A masked value is never

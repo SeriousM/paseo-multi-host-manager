@@ -216,7 +216,7 @@ Findings and cautions:
 Answered: settings-file write + reload (WP1); `config.patch` / reload / restart map (`ROWS.md`); `@getpaseo/client` as a runtime dependency via the registry mechanism, 0.13.0 against 0.13.2 (WP3).
 Still open:
 - Does a connected client's `useSettings` pick up an external file write without reload (needs the app UI)?
-- Will the registry reviewer accept the credential/env reads, `config.json` and cross-plugin file writes, and the internal client entry? (Ask before implementing; fallback is documenting them in `OVERVIEW.md` or shipping the writers as a separate opt-in plugin.)
+- Will the registry reviewer accept the credential/env reads, `config.json` and cross-plugin file writes, and the internal client entry? (Ask before implementing; fallback is documenting them in `OVERVIEW.md` or shipping the writers as a separate opt-in plugin.) The per-host settings-write opt-in that was tried was dropped: it had no UI and anyone authenticated to the host could set it.
 - Restart-required rows: only classified by `reloadDaemonConfig`; effect after an actual restart not exercised.
 - Reload-applied keys beyond the 17 rows (`hostnames`, `cors`, `trustedProxies`, `git.*`, `app.baseUrl`, ...) are from server source only.
 - ~~Client 0.13.0 against an actual 0.13.0 daemon; 0.14 beta against the pinned client.~~ Done in WP9: `npm run matrix -- --paseo 0.13.0` and `--paseo 0.14.0` both pass with W and L on that version. 0.13.0 as the hub is untested.

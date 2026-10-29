@@ -102,7 +102,7 @@ and never call the apply RPCs themselves.
 (`expectedRevision` = the revision it read) or `restoreSettingsDoc`; a written document keeps "written, validity unknown" for as long as
 its staged item exists, with a "Reload plugin" button that stages `reloadPlugin`. Pure logic, unit-tested (`client-editor.test.ts`):
 `doc-preview.ts` (`previewWrite`: every key changed/new/removed/kept/secret, never a secret value; `planDocPaste`: drops masked keys the
-target lacks, the contract rule), `access.ts` (`editorAccess`: read-only reasons, consent only ever explained, never toggled;
+target lacks, the contract rule), `access.ts` (`editorAccess`: read-only reasons; there is no per-host write opt-in any more;
 `docStatus`: outcome and conflict text). "Paste from <host>" inside the editor uses the clipboard's document and the target's own read;
 the grid-level paste (`planPaste`) stages the clipboard values as they are, so a masked key the target lacks fails the write there
 (`invalid_input`) unless it goes through `planDocPaste` first.

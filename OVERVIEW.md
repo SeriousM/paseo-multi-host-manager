@@ -80,16 +80,17 @@ your own Paseo hosts, over the connection you already saved for them.
 - Reads the settings documents of other plugins in `plugin-settings/` on each host, with
   secret-looking values replaced by `<masked>` (by key name such as `token`, `password`, `dsn`,
   `connectionString`, and by value shape such as API key prefixes, bearer tokens and URLs with a user
-  or password). This read needs no opt-in.
-- Stores its own settings per host: the broker policy on the hub (pre-release hosts allowed, plain
-  TCP hosts allowed) and the settings-write opt-in on each host.
+  or password).
+- Stores its own settings on the hub: the broker policy (pre-release hosts allowed, plain TCP hosts
+  allowed).
 
-### Tier B: plugin settings writes (off by default, per target host)
+### Tier B: plugin settings writes
 
-- Setting `allowPluginSettingsWrites` lets the plugin on that host write the settings documents of
-  other plugins in `plugin-settings/`. Before writing it checks the document has not changed since it
-  was read, keeps the previous version as a `.bak` next to it, writes atomically with mode 0600, and
-  keeps masked values as the target had them.
-- The opt-in lives in this plugin's own settings on the target host. Anyone who can authenticate to
-  that host (its Paseo app, CLI or a saved-host connection) can switch it. The hub UI never offers a
-  toggle for it, and the plugin refuses to write its own settings through the remote settings editor.
+- When you apply a settings-document change, the plugin writes that other plugin's document in
+  `plugin-settings/` on the target host, on any managed host. Before writing it checks the document
+  has not changed since it was read, keeps the previous version as a `.bak` next to it, writes
+  atomically with mode 0600, and keeps masked values as the target had them. Nothing is written
+  before Apply, and you see a preview of every changed key first.
+- The plugin refuses to write its own settings through the remote settings editor.
+- There is no per-host opt-in. An earlier version had one, but it had no UI and anyone authenticated
+  to the host could set it, so it protected little.
