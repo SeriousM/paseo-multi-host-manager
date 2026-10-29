@@ -57,6 +57,7 @@ function classify(test) {
   const name = [...test.ancestorTitles, test.title].join(" > ");
   if (test.file.endsWith("git-install.test.ts")) return "git install";
   if (test.file.endsWith("add-host.test.ts")) return "add/remove host";
+  if (test.file.endsWith("host-password.test.ts")) return "password";
   if (/wrong-password/.test(name)) return "password";
   if (/lockout confirmation/.test(name)) return "lockout guards";
   if (/plugin lifecycle/.test(name)) return "install/remove/update";

@@ -34,11 +34,24 @@ export function wsl(script: string): string {
   return r.stdout;
 }
 
+/** W's relay pairing link as `paseo daemon pair --relay` prints it: no password in it. */
+export function pairingLinkW(): string {
+  const { exe, home } = readState().windows;
+  const r = spawnSync("cmd", ["/c", exe, "daemon", "pair", "--home", home, "--relay", "--json"], { encoding: "utf8", windowsHide: true });
+  return JSON.parse(r.stdout).connectionUri;
+}
+
 export function relayPairing(): { endpoint: string; key: string } {
-  const exe = readState().windows.exe;
-  const r = spawnSync("cmd", ["/c", exe, "daemon", "pair", "--home", readState().windows.home, "--relay", "--json"], { encoding: "utf8", windowsHide: true });
-  const uri = new URL(JSON.parse(r.stdout).connectionUri);
+  const uri = new URL(pairingLinkW());
   return { endpoint: uri.host, key: uri.searchParams.get("key") ?? "" };
+}
+
+/** Records a host's new registration id after a test saved it again, so later suites route to it. */
+export function updateHubHost(key: string, registrationId: string): void {
+  const file = path.join(envDir, "state.json");
+  const state = JSON.parse(fs.readFileSync(file, "utf8"));
+  for (const host of state.hubHosts) if (host.key === key) host.registrationId = registrationId;
+  fs.writeFileSync(file, JSON.stringify(state, null, 2));
 }
 
 export async function connectHub(): Promise<DaemonClient> {
