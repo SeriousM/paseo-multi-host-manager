@@ -6,8 +6,8 @@ opening each host in turn. So this is a plugin that shows the settings and plugi
 one grid and copies a value from one host to the others when I tell it to.
 
 It runs on one host, the hub, which already has the other hosts saved. The hub's daemon reaches each
-of them over the connection you saved for it, relay and password included, so the plugin never
-needs to know where a host lives or how to log in.
+of them over the connection you saved for it, relay and password included. The plugin holds no
+addresses or passwords.
 
 Up front: I used AI to write a good part of the code and to help with the docs. The ideas, the
 feature list and the trade-offs are mine. Read the source like any third-party code, especially
@@ -47,7 +47,7 @@ The compact view for narrow screens, two hosts side by side:
   preview of every changed, new, removed and masked key before you stage the write.
 - A baseline host: every other host is compared with it cell by cell, "Only differences" hides the
   rows that match, and "Stage N from baseline" stages what can be copied. The baseline lasts for the
-  session; it is not remembered.
+  session.
 - A capabilities dialog per host: version and whether it is in the tested window, missing features
   and what they block, the link type, and whether the companion is installed.
 - A compact view for phones that compares two hosts row by row.
@@ -70,7 +70,9 @@ What it reads and writes, by tier:
   Every patch is re-read afterwards, because `config.patch` accepts unknown keys silently. The
   restart-only keys (`daemon.listen`, `worktrees.root`, `log.console.level`) are read from
   `config.json` by the companion and shown, never written. The plugin does not write `config.json`.
-  Other plugins' settings documents can be read on every host, with secrets masked.
+  Other plugins' settings documents can be read on every host, with secrets masked. The plugin
+  installs, updates and removes plugin code on your other hosts, only for items you staged and
+  confirmed.
 - Tier B, off by default, per target host. With `allowPluginSettingsWrites` switched on in this
   plugin's settings on the target host, the companion there writes other plugins' settings
   documents. It checks the document has not changed since it was read, keeps a `.bak` (restore swaps
@@ -89,7 +91,9 @@ last. Turning the plugin switch or the relay on goes first on a host, turning th
 since either can cut the hub's link to that host. Those switch-offs, and removing or disabling this
 plugin on a remote host, need an extra lockout confirmation; removing or disabling it on the hub is
 refused. Installs need a trust confirmation, removals a destructive one. Failed items stay in the
-drawer with Retry.
+drawer with Retry. When the hub stops answering during an apply, the items it had not reported yet
+are marked "result lost" and Retry leaves them out, since they may have run; reload the grid to see
+what changed.
 
 A settings document written to another plugin shows "written, validity unknown" until that plugin is
 reloaded: the plugin cannot tell whether the target accepts the new values, so it says so and offers
@@ -106,9 +110,17 @@ is why the client package is pinned and every release gets a matrix run.
 paseo plugin add git:SeriousM/paseo-multi-host-manager
 ```
 
-Or from a checkout:
+Once it is listed in the Paseo registry:
 
 ```sh
+paseo plugin add seriousm/paseo-multi-host-manager
+```
+
+Or from a checkout. Run `npm ci` first: a directory install loads `@getpaseo/client` from the
+checkout's own `node_modules`.
+
+```sh
+npm ci
 paseo plugin install /absolute/path/to/this/repository
 ```
 
@@ -119,7 +131,9 @@ installing.
 The plugin is needed on every host you want to manage, not only on the hub: the companion part reads
 the OS, the restart-only keys and the settings documents there. A host without it shows those rows as
 unavailable, and its capabilities dialog has an "Install companion" button that stages the install
-from the registry. Apply it like any other install.
+from the same source the hub was installed from (git, npm or registry); apply it like any other
+install. A hub installed from a checkout has no source to hand on, so install the plugin on the
+other hosts yourself.
 
 ## Requirements
 

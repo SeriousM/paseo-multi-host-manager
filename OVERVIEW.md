@@ -1,21 +1,21 @@
 # Multi-Host Manager
 
-See the settings and plugins of all your Paseo hosts in one grid, and copy them between hosts. Hosts
-are columns; host facts, daemon settings and installed plugins are rows. Copy a cell, paste it onto
-one host or several, review the staged changes, then apply them.
+Shows the settings and plugins of every saved Paseo host in one grid and copies them between hosts.
+Hosts are columns; host facts, daemon settings and installed plugins are rows. Copy a cell, paste it
+onto one host or several, review the staged changes, then apply them.
 
 ![Hosts as columns, settings and plugins as rows](https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-grid.png)
 
 The plugin runs on one host, the hub, which already has your other hosts saved (`paseo host add`).
 The hub's daemon reaches each host over the connection you saved for it, relay and password
-included, so the plugin needs no addresses or passwords of its own.
+included. The plugin holds no addresses or passwords.
 
 ## Setup
 
 Install the plugin on the hub and on every host you want to manage. The copy on each host is the
 companion: it reports the operating system, the settings Paseo can only change with a restart, and
 the settings documents of other plugins. A host without it shows those rows as unavailable, and its
-capabilities dialog offers to stage the install from the hub.
+capabilities dialog offers to stage the install from the same source the hub was installed from.
 
 Requires Paseo 0.13.0 or newer on every host, tested up to 0.14.0. Newer versions are marked
 untested. Pre-release daemons are blocked until you allow them, and a host saved with a plain TCP
@@ -57,6 +57,8 @@ your own Paseo hosts, over the connection you already saved for them.
   plugins, read config and manage plugins on saved hosts. The
   `@getpaseo/client/internal/daemon-client` import is isolated in `server/broker/daemon-client.ts`.
   This is an internal API and may change between Paseo releases.
+- Installs, updates and removes plugin code on your other hosts, only for items you staged and
+  confirmed.
 - Never reads `hosts.json`. Connection strings and targets are never logged beyond a scheme
   classification.
 - Reads `daemon.listen`, `worktrees.root` and `log.console.level` from `config.json` on each host for
