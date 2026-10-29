@@ -73,6 +73,21 @@ describe("apply order", () => {
     expect(writes(L)).toEqual(["disable:keep-awake", "patch:pluginsEnabled"]);
   });
 
+  it("applies hosts one after the other in the hub directory's order, whatever the staged order", async () => {
+    const { session } = setup();
+    await run(session, [
+      { id: "l1", host: "srv_L", op: "setRow", rowId: "sys", value: "l" },
+      { id: "w1", host: "srv_W", op: "setRow", rowId: "sys", value: "w" },
+      { id: "l2", host: "srv_L", op: "setRow", rowId: "mcp", value: false },
+      { id: "w2", host: "srv_W", op: "setRow", rowId: "mcp", value: false },
+    ]);
+    const hosts = log.filter((entry) => entry.startsWith("srv_W:") || entry.startsWith("srv_L:")).map((entry) => entry.split(":")[0]);
+    const lastW = hosts.lastIndexOf("srv_W");
+    const firstL = hosts.indexOf("srv_L");
+    expect(lastW).toBeGreaterThanOrEqual(0);
+    expect(firstL).toBeGreaterThan(lastW);
+  });
+
   it("applies remote hosts before the hub's own items", async () => {
     const { session } = setup();
     await run(session, [

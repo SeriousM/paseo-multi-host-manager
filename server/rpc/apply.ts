@@ -230,9 +230,9 @@ async function applyHost(client: DaemonClient, host: HostEntry, policy: BrokerPo
 }
 
 /**
- * Applies staged items; results come in the order of `items`. Remote hosts run in parallel, each host's items one after the
- * other in the order given by `rank`. The hub's own items run after all remote hosts finished, because switching plugins
- * off on the hub stops this plugin. A host failure marks that host's remaining items and never touches other hosts.
+ * Applies staged items; results come in the order of `items`. Hosts run one after the other in the hub directory's order,
+ * each host's items in the order given by `rank`, each host within its own timeout. The hub's own items run last, because
+ * switching plugins off on the hub stops this plugin. A host failure marks that host's remaining items and never touches other hosts.
  * Items that need confirmation but lack it, and items that are malformed, are rejected without contacting a host.
  * `baseTimeoutMs` is the per-host base of hostTimeoutMs.
  */
@@ -256,8 +256,10 @@ export function applyItems(origin: OriginSession, home: string, policy: BrokerPo
       }));
       const known = groups.filter(({ group }) => group.length > 0);
       const apply = ({ host, group }: (typeof groups)[number]) => applyHost(client, host, policy, baseTimeoutMs, group, slots);
-      await Promise.all(known.filter(({ host }) => !host.isHub).map(apply));
-      await Promise.all(known.filter(({ host }) => host.isHub).map(apply));
+      // One host after the other, in the hub directory's order: "in sequence" as the user staged it, and a slow
+      // host never shares the hub with another one's package manager run.
+      for (const entry of known.filter(({ host }) => !host.isHub)) await apply(entry);
+      for (const entry of known.filter(({ host }) => host.isHub)) await apply(entry);
       return results();
     },
     (_hubId, failure) => {

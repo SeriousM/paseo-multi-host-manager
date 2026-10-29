@@ -116,11 +116,11 @@ describe("staging drawer view", () => {
       },
     );
 
-  it("groups per host, hub first, in the server's apply order with 1-based positions", () => {
+  it("groups per host, hub last, in the server's apply order with 1-based positions", () => {
     const state = stageAll();
     const groups = groupStaged(state.staged, state.hosts);
-    expect(groups.map((group) => group.label)).toEqual(["hub", "a", "b"]);
-    expect(groups[1].items.map((item) => [item.position, item.view.title])).toEqual([
+    expect(groups.map((group) => group.label)).toEqual(["a", "b", "hub"]);
+    expect(groups[0].items.map((item) => [item.position, item.view.title])).toEqual([
       [1, "Plugins enabled (global switch)"],
       [2, "Inject Paseo MCP into agents"],
       [3, "Relay enabled"],

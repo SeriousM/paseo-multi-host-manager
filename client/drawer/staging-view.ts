@@ -145,7 +145,7 @@ export interface DrawerGroup {
   items: DrawerItem[];
 }
 
-/** Staged items per host, hosts in grid order (hub first), items in the order the server applies them. */
+/** Staged items per host and items within a host, both in the order the server applies them (hub last). */
 export function groupStaged(staged: readonly StagedItem[], hosts: readonly GridHost[]): DrawerGroup[] {
   const groups: { hostId: string; host: GridHost | undefined; entries: StagedItem[] }[] = [];
   for (const entry of staged) {
@@ -155,9 +155,11 @@ export function groupStaged(staged: readonly StagedItem[], hosts: readonly GridH
     if (group) group.entries.push(entry);
     else groups.push({ hostId, host, entries: [entry] });
   }
+  // The order the server applies them: remote hosts in directory order, the hub last (server/rpc/apply.ts).
   const order = (hostId: string) => {
     const index = hosts.findIndex((host) => host.id === hostId);
-    return index < 0 ? hosts.length : index;
+    if (index < 0) return hosts.length + 1;
+    return hosts[index].isHub ? hosts.length : index;
   };
   groups.sort((a, b) => order(a.hostId) - order(b.hostId));
   return groups.map(({ hostId, host, entries }) => ({
