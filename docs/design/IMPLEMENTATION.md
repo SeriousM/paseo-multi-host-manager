@@ -21,7 +21,7 @@ Each tier is documented in `OVERVIEW.md` with the exact file/API it touches.
 9. Refresh overview batched per host, not per cell (relay round trips ~0.2-1.2 s).
 
 ## Layout
-Single npm package `multi-host-manager`:
+Single npm package `paseo-multi-host-manager`:
 `paseo-plugin.json`, `OVERVIEW.md`, `index.server.ts`, `index.client.tsx`, `server/{broker,companion,rows,rpc}/`, `client/{grid,drawer,editor,hooks}/`, `shared/{contracts,rows,errors,mask}.ts`, `test/{unit,integration}/`, `testenv/` (dev only, excluded from `files`), `docs/design/`.
 Dependencies: `@getpaseo/client` exact version, `npm-shrinkwrap.json` listed in `files`.
 Tests: vitest unit tests (fake DaemonClient, temp dirs cleaned in `afterEach`); integration tests run with `MHM_TESTENV=1` between `testenv/up.mjs` and `testenv/down.mjs`.

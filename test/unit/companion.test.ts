@@ -206,9 +206,9 @@ describe("plugin settings documents", () => {
   });
 
   it("refuses to write the companion's own settings", async () => {
-    const result = await writeSettings(ctx, { pluginId: "multi-host-manager", settingsId: "companion", expectedRevision: "missing", version: 1, values: { allowConfigWrites: true } });
+    const result = await writeSettings(ctx, { pluginId: "paseo-multi-host-manager", settingsId: "companion", expectedRevision: "missing", version: 1, values: { allowConfigWrites: true } });
     expect(result).toMatchObject({ ok: false, code: "not_allowed" });
-    expect(fs.existsSync(settingsFile("multi-host-manager", "companion"))).toBe(false);
+    expect(fs.existsSync(settingsFile("paseo-multi-host-manager", "companion"))).toBe(false);
   });
 
   it("writes atomically with a backup, then restores it", async () => {

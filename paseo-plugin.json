@@ -1,6 +1,6 @@
 {
-  "id": "multi-host-manager",
-  "name": "Multi-host manager",
+  "id": "paseo-multi-host-manager",
+  "name": "Multi-Host Manager",
   "media": [],
   "requirements": {
     "paseo": ">=0.13.0"

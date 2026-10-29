@@ -1,11 +1,11 @@
 {
-  "name": "multi-host-manager",
+  "name": "paseo-multi-host-manager",
   "version": "0.0.1",
   "description": "View and manage settings and plugins of all your Paseo hosts from one screen.",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/MultiHostManagerPaseoPlugin.git"
+    "url": "git+https://github.com/SeriousM/paseo-multi-host-manager.git"
   },
   "files": [
     "npm-shrinkwrap.json",
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@getpaseo/plugin": "0.13.0",
+    "@getpaseo/protocol": "0.13.0",
     "@tanstack/react-query": "^5.90.11",
     "@types/node": "^22.0.0",
     "@types/react": "~19.2.0",

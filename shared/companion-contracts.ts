@@ -1,7 +1,7 @@
 import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
 
-export const OWN_PLUGIN_ID = "multi-host-manager";
+export const OWN_PLUGIN_ID = "paseo-multi-host-manager";
 
 export const consentSchema = z.object({
   allowConfigWrites: z.boolean().default(false),
