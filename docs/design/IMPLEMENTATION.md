@@ -14,9 +14,9 @@ Each tier is documented in `OVERVIEW.md` with the exact file/API it touches.
 2. `config.patch` ignores unknown keys: verify every patch by re-reading.
 3. Companion file writes: re-read and hash-compare immediately before writing; write temp file with mode 0600, then atomic rename.
 4. Apply order: `pluginsEnabled` and `relay` first when enabling, last when disabling (disabling `pluginsEnabled` takes the companion down; `relay` off comes after it, last of all, because it can drop the hub's link). Both switch-offs, and removing or disabling this plugin on a remote, need a lockout confirmation (`lockout_confirmation_required`); removing or disabling it on the hub is refused (`self_target`). A patch whose re-read fails is reported ok but `unverified`.
-5. No rows beyond `docs/design/ROWS.md` in v1. `agents.idleRuntimeCleanup` is dropped.
+5. No rows beyond `docs/design/ROWS.md` in v1. `agents.idleRuntimeCleanup` is the `idle` row, live from Paseo 0.14.0; a host without the `idleRuntimeCleanupSetting` flag shows "needs newer Paseo".
 6. Plugin update and remote enable/disable are untested so far; cover them in integration tests.
-7. 0.13.0 daemon: tested in WP9. `npm run matrix -- --paseo 0.13.0` (W and L on 0.13.0, hub on 0.13.2) passes every check, so the minimum stays 0.13.0. A 0.13.0 *hub* (the broker) is not covered: the hub is the user's own daemon, not part of the throwaway env.
+7. 0.13.0 daemon: tested in WP9. `npm run matrix -- --paseo 0.13.0` (W and L on 0.13.0, hub on 0.13.2) passes every check, so the minimum stays 0.13.0. The tested target is 0.14.0 (`--paseo 0.14.0`, same checks plus the `idle` row written, verified and restored on W and L); the version window is 0.13.0 to 0.14.0. A 0.13.0 *hub* (the broker) is not covered: the hub is the user's own daemon, not part of the throwaway env.
 8. Mask secrets by key name (`token|key|secret|password|...`) and by value pattern (`^(sk-|ghp_|xox|AKIA)` etc.).
 9. Refresh overview batched per host, not per cell (relay round trips ~0.2-1.2 s).
 
@@ -34,7 +34,7 @@ Tests: vitest unit tests (fake DaemonClient, temp dirs cleaned in `afterEach`); 
 | WP6 Companion | `defineSettings` with `allowPluginSettingsWrites` (default false). RPCs: `host.info`, `config.read` (restart-only keys, read-only), `settings.list/read/write/restore` (masking, revision check, atomic 0600 write, `.bak`). | WP4 | Unit tests on temp dirs; integration on W+L: restart-only keys read without secrets, opt-in off -> `capability_disabled`. |
 | WP7 Rows + RPC + apply | `shared/rows.ts` from ROWS.md; Zod contracts; staging apply (sequential, per-item status, retry, backup refs); plugin install/remove/update/enable/disable. | WP5, WP6 | Integration: install keep-awake on L via hub, enable/disable, update check, remove; settings paste W -> L shows "written, validity unknown"; `pluginsEnabled=false` marks companion rows unavailable, not failed. |
 | WP8 UI | 8a state model + grid; 8b clipboard bar, staging drawer, trust/destructive dialogs, capability dialog; 8c settings-document editor with secret preview and reload follow-up; compact view; registry screenshot. | WP7 contracts | Desktop + web + narrow width; every mockup action reachable; opt-in-off hosts show the reason; lint clean. |
-| WP9 Matrix + release | `npm run matrix` (reach/list/RPC/install/remove/update/password/relay, `beta` mode); 0.13.0 check; final OVERVIEW.md; registry submission checklist; docs sync. | WP7, WP8 | Matrix green on 0.13.2 W+L; `npm pack` contents reviewed; testenv leaves nothing behind. |
+| WP9 Matrix + release | `npm run matrix` (reach/list/RPC/install/remove/update/password/relay, `beta` mode); 0.13.0 and 0.14.0 checks; final OVERVIEW.md; registry submission checklist; docs sync. | WP7, WP8 | Matrix green on W+L at the default (desktop CLI on W, 0.13.2 on L), 0.13.0 and 0.14.0; `npm pack` contents reviewed; testenv leaves nothing behind. |
 
 ## Questions for the Paseo maintainers (non-blocking)
 a. Is `@getpaseo/client/internal/daemon-client` + `openHostRoute` acceptable for a registry plugin, or will plugin management be exposed on `PaseoApi`?

@@ -51,12 +51,11 @@ Plugin paste options: version, config, enabled state.
 
 ## Version support policy (proposed)
 - **Minimum: 0.13.0.** Hard floor: `connectedHosts` / `hostMultiplexing` arrive there. Manifest `requirements.paseo: ">=0.13.0"`, no upper bound (an upper bound would disable the plugin on every new Paseo release).
-  Type-check against the `@getpaseo/plugin` and `@getpaseo/client` versions of the minimum, so newer APIs cannot be used by accident.
-- **Target: newest stable that passed the test matrix** (now 0.13.2). Supported = every stable release from minimum to target, any patch.
+  The SDK is the target's (0.14.0). Methods and flags newer than 0.13.0 must be gated on `server_info.features` (e.g. `idleRuntimeCleanupSetting`), because the 0.14.0 types cannot catch a call a 0.13 daemon lacks.
+- **Target: newest stable that passed the test matrix** (now 0.14.0; window 0.13.0 to 0.14.0). Supported = every stable release from minimum to target, any patch.
 - **Newer stable than target:** runs, header shows "untested". All calls are gated on the host's `server_info.features`, so unknown flags are ignored and missing ones disable the action.
 - **Below minimum:** shown as unreachable ("below minimum").
 - **Pre-release (beta, rc): unsupported.** Detected by a `-` in `server_info.version`. Blocked by default; header option "Allow pre-release hosts" is an explicit opt-in.
-  Evidence: 0.14.0-beta.2 vs 0.13.2 keeps every DaemonClient method we use unchanged, but its feature flags changed (2 added, 2 removed) and Paseo's own semver rule lets a prerelease satisfy `>=0.13.0`,
-  so the daemon would load the plugin on a beta without warning.
+  Evidence: Paseo's own semver rule lets a prerelease satisfy `>=0.13.0`, so the daemon would load the plugin on a beta without warning.
 - **Canary:** run the spike test matrix (reach, list, RPC, install/remove, password, relay) against the npm `beta` dist-tag on a schedule. Failures are fixed before the stable release, without promising beta support.
 - **Re-verify on every minor** because `@getpaseo/client/internal/daemon-client` is an internal entry. Raise the minimum when Paseo drops a compatibility shim we depend on.

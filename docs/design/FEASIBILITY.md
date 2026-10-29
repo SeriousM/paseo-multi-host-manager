@@ -146,7 +146,7 @@ Linux daemon (Debian 12 under WSL2, port 6769, password). Probe plugin on all th
 - **Security chain.** plugin -> own daemon over loopback with the local credential, then daemon -> host over that host's saved transport (relay E2EE, SSH, or tcp+password).
   Relay and SSH are encrypted. Plain `tcp://` with a password is NOT encrypted: the plugin must read `targetDescription` and flag/deny `tcp://` to a non-loopback address.
   Paseo stores saved-host connection strings, including passwords, in plaintext in `$PASEO_HOME/hosts.json`. That is Paseo's behaviour; our plugin must not copy it anywhere.
-- **Version gates (from published protocol packages).** See `CAPABILITIES.md`. `connectedHosts` and `hostMultiplexing` arrive in 0.13.0: a daemon older than 0.13 can neither broker nor be routed to.
+- **Version gates (from published protocol packages).** See `CAPABILITIES.md`. `connectedHosts` and `hostMultiplexing` arrive in 0.13.0: a daemon older than 0.13 can neither broker nor be routed to. Version window: 0.13.0 to 0.14.0, tested target 0.14.0 (0.14.0 adds `idleRuntimeCleanupSetting`, `speechSettings`, `wholeTurnTimeline`; nothing was removed).
   Plugin management exists since 0.8.0, source installation/updates since 0.9.0.
 - `PASEO_HOME` was set in both plugin subprocesses. Fall back to `~/.paseo` when it is not.
 
@@ -208,7 +208,7 @@ Findings and cautions:
 - Packaging trap: with a `files` list, `npm pack` does **not** include `npm-shrinkwrap.json` unless it is listed. Add it to `files`, check `npm pack --dry-run`.
 - Test trap: a directory plugin resolves modules from **ancestor** `node_modules`, so a test dir below a folder that has `@getpaseo/client` passes by accident. Test in a clean location.
 - Test trap: `paseo daemon start` (managed) strips `PASEO_PLUGIN_REGISTRY` and the other daemon env settings; only `paseo daemon run` (deployment mode) honours it. The `host/owner/slug` form is HTTPS-only, so a local HTTP registry needs the env var.
-- `@getpaseo/plugin@0.13.x` peer-depends on the exact same `@getpaseo/client` version. Type-check against the minimum (0.13.0) and ship `@getpaseo/client` as an exact runtime dependency at that version; 0.13.0 ran against 0.13.2 (not tested against a 0.13.0 daemon, none available).
+- `@getpaseo/plugin@0.13.x` peer-depends on the exact same `@getpaseo/client` version. Ship `@getpaseo/client` as an exact runtime dependency. It was pinned at the minimum (0.13.0) while the window was one release wide; it is now 0.14.0, the tested target: every DaemonClient method the plugin calls has the same signature in 0.13.0 to 0.14.0, so the 0.14.0 client also runs against 0.13 daemons (matrix on 0.13.0 hosts). The version window is 0.13.0 to 0.14.0.
 - **Recommendation: p1 (exact runtime dependency + shrinkwrap/lock) over pre-bundling.** Paseo already bundles the dependency tree, the registry reviewer sees small source plus a lock (a 9 MB generated bundle needs a matching source diff and invites rejection), and the lock gives integrity for every package. Pre-bundling (p3) is the fallback if npm on targets proves unreliable: it installs in 4 s and needs no dependency resolution at install, but npm is still needed for an npm artifact; only a git artifact with a committed bundle avoids npm entirely.
 - **Registry-review risk for this plugin:** it reads `local-credential` and `paseo.pid`, uses `@getpaseo/client/internal/*`, writes other plugins' settings files and `config.json`, and installs plugins on other hosts. Each needs an explicit justification in `OVERVIEW.md` (user-confirmed installs fit the runtime-install rule); acceptance by the reviewer is unknown. Raise it with the registry maintainers before building the writers.
 
@@ -219,6 +219,6 @@ Still open:
 - Will the registry reviewer accept the credential/env reads, `config.json` and cross-plugin file writes, and the internal client entry? (Ask before implementing; fallback is documenting them in `OVERVIEW.md` or shipping the writers as a separate opt-in plugin.)
 - Restart-required rows: only classified by `reloadDaemonConfig`; effect after an actual restart not exercised.
 - Reload-applied keys beyond the 17 rows (`hostnames`, `cors`, `trustedProxies`, `git.*`, `app.baseUrl`, ...) are from server source only.
-- ~~Client 0.13.0 against an actual 0.13.0 daemon; 0.14 beta against the pinned client.~~ Done in WP9: `npm run matrix -- --paseo 0.13.0` and `--paseo beta` (0.14.0) both pass with W and L on that version (hub on 0.13.2). 0.13.0 as the hub is untested.
+- ~~Client 0.13.0 against an actual 0.13.0 daemon; 0.14 beta against the pinned client.~~ Done in WP9: `npm run matrix -- --paseo 0.13.0` and `--paseo 0.14.0` both pass with W and L on that version. 0.13.0 as the hub is untested.
 - Password-protected hub with real user relays, Linux hub on a real machine, macOS (unchanged).
 - Bootstrapping the companion on a fresh host (install through the hub like any plugin, needs `pluginsEnabled`), "Add host" via `paseo.hosts.add` in the UI (unchanged).

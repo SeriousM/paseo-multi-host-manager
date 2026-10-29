@@ -1,6 +1,6 @@
 # Paseo capability flags by release
 
-Source: `server_info.features` boolean flags as declared in each stable `@getpaseo/protocol` release (0.6.0 to 0.13.2, extracted from the published npm packages on 2026-10-28). At runtime the authoritative source is the connected daemon's own `server_info.features` (and `version`, `protocolVersion`, `capabilities`, `permissions`): gate on the flag, use this table only for messages and for hosts that do not report a flag.
+Source: `server_info.features` boolean flags as declared in each stable `@getpaseo/protocol` release (0.6.0 to 0.14.0, extracted from the published npm packages on 2026-10-28 and 2026-10-29). At runtime the authoritative source is the connected daemon's own `server_info.features` (and `version`, `protocolVersion`, `capabilities`, `permissions`): gate on the flag, use this table only for messages and for hosts that do not report a flag.
 
 | First stable release | Flags introduced |
 | --- | --- |
@@ -9,6 +9,7 @@ Source: `server_info.features` boolean flags as declared in each stable `@getpas
 | 0.11.0 | usageSources |
 | 0.12.0 | backgroundWorkspaces, internalAgents, internalWorkspaces |
 | 0.13.0 | connectedHosts, hostMultiplexing |
+| 0.14.0 | idleRuntimeCleanupSetting, speechSettings, wholeTurnTimeline |
 
 ## Flags this plugin depends on
 
@@ -25,3 +26,6 @@ Source: `server_info.features` boolean flags as declared in each stable `@getpas
 | Config reload without restart | daemonConfigReload | 0.8.0 |
 | Relay configuration RPC | relayConfig | 0.8.0 |
 | Daemon status RPC | daemonStatusRpc | 0.8.0 |
+| Write the "Release idle agent runtimes" row (`config.patch` key `idleRuntimeCleanup`) | idleRuntimeCleanupSetting | 0.14.0 |
+
+The 0.14.0 server source comments `idleRuntimeCleanupSetting` as added in 0.13.0, but the 0.13.0 to 0.13.2 protocol packages do not declare it and a 0.13.2 daemon ignores the key (ROWS.md). The flag, not the version, decides. Nothing was removed or renamed between 0.13.2 and 0.14.0.
