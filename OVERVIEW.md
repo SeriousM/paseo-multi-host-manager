@@ -14,6 +14,7 @@ Every capability tier lists the exact files and APIs involved. Nothing is sent a
 
 ### Tier B: plugin settings writes (off by default, per target host)
 - Setting `allowPluginSettingsWrites` lets the plugin on that host write the settings documents of other plugins in `plugin-settings/`, with a backup, secret masking and a preview.
+- The opt-in lives in this plugin's own settings on the target host. Anyone who can authenticate to that host (its Paseo app, CLI or a saved-host connection) can switch it. The hub UI never offers a toggle for it, and the plugin refuses to write its own settings through the remote settings editor.
 
 ## Screenshot
 
