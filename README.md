@@ -1,11 +1,182 @@
-# Multi-host manager (Paseo plugin)
+# Multi-Host Manager for Paseo
 
-Design: `docs/design/IMPLEMENTATION.md`.
+I run Paseo on a few machines, Windows and Linux, and kept finding that one of them had a different
+relay setting, an older plugin or a provider entry I had fixed everywhere else. Checking meant
+opening each host in turn. So this is a plugin that shows the settings and plugins of every host in
+one grid and copies a value from one host to the others when I tell it to.
 
-## Develop
-- `npm ci`
-- `npm run typecheck`, `npm run lint`, `npm test`
-- `npm run pack:check` lists the files the npm package would contain (must include `npm-shrinkwrap.json` and `OVERVIEW.md`, not `testenv`, `docs` or `.local`).
-- `npm run matrix [-- --paseo <version|beta>]` runs the whole local release check: testenv up, integration suite, testenv down (always), and prints a pass/fail table. `--paseo` starts W and L on that daemon version.
-- Integration tests need the two-host test environment: `node testenv/up.mjs` (starts W and L, saves them on the hub and installs the packed plugin on hub, W and L), then `npm run test:integration`, then `node testenv/down.mjs` (removes the plugin from the hub). See `testenv/` (`npm ci` there first).
-- Test an install like a registry install: `npm pack`, then install the tarball on a hub. A directory plugin resolves modules from ancestor `node_modules` and can pass by accident.
+It runs on one host, the hub, which already has the other hosts saved. The hub's daemon reaches each
+of them over the connection you saved for it, relay and password included, so the plugin never
+needs to know where a host lives or how to log in.
+
+Up front: I used AI to write a good part of the code and to help with the docs. The ideas, the
+feature list and the trade-offs are mine. Read the source like any third-party code, especially
+before you turn on plugin settings writes on a host.
+
+## Screens
+
+The grid, and the same grid compared against a baseline host:
+
+| Grid | Baseline |
+| --- | --- |
+| ![Hosts as columns, settings and plugins as rows](assets/screenshot-grid.png) | ![Every cell compared with the chosen baseline host](assets/screenshot-baseline.png) |
+
+Applying staged changes, and the settings document editor:
+
+| Apply | Settings editor |
+| --- | --- |
+| ![Staging drawer with the result per item](assets/screenshot-apply.png) | ![Another plugin's settings document with masked secrets](assets/screenshot-editor.png) |
+
+The compact view for narrow screens, two hosts side by side:
+
+![Two hosts compared row by row](assets/screenshot-compact.png)
+
+## What it does
+
+- One column per saved host, hub first. Rows for host facts (Paseo version, operating system, listen
+  address, saved connection type, worktree root, console log level), the daemon settings Paseo can
+  change at runtime (relay, MCP injection, browser tools, terminal agent hooks, auto-archive after
+  merge, release idle agent runtimes, append system prompt, custom providers, the global plugin
+  switch) and every installed plugin with version and enabled state.
+- Tap a cell, copy it, paste it onto one host or several in sequence. Pasting stages a change, it
+  does not write anything.
+- Install, remove, enable, disable, reload and update plugins per host. Installs take a registry
+  id, `npm:` or `git:` source. Sources with credentials in the URL and local directories are
+  refused.
+- An editor for other plugins' settings documents on any host, as a field list or as JSON, with a
+  preview of every changed, new, removed and masked key before you stage the write.
+- A baseline host: every other host is compared with it cell by cell, "Only differences" hides the
+  rows that match, and "Stage N from baseline" stages what can be copied. The baseline lasts for the
+  session; it is not remembered.
+- A capabilities dialog per host: version and whether it is in the tested window, missing features
+  and what they block, the link type, and whether the companion is installed.
+- A compact view for phones that compares two hosts row by row.
+
+## How it works
+
+The screen talks to the plugin on the hub. The hub's plugin server connects to its own daemon with
+the same local credential the Paseo CLI uses (`local-credential` and `paseo.pid` in the Paseo home),
+then opens a routed connection to each saved host through that daemon. Relay endpoints, passwords
+and ports stay in the hub's saved host entries; the plugin never reads `hosts.json` and only ever
+shows or logs the kind of link (relay, SSH, loopback, plain TCP). Plain TCP carries a password
+unencrypted, so a host saved that way is blocked until you allow it for that host. Pre-release
+daemons are blocked until you allow them with the toolbar switch, and hosts below 0.13.0 cannot be
+reached through a hub at all.
+
+What it reads and writes, by tier:
+
+- Tier A, always on. Plugin management and daemon settings go through the daemon's own calls
+  (`listPlugins`, `installPluginSource`, `removePlugin`, `config.get`, `config.patch` and so on).
+  Every patch is re-read afterwards, because `config.patch` accepts unknown keys silently. The
+  restart-only keys (`daemon.listen`, `worktrees.root`, `log.console.level`) are read from
+  `config.json` by the companion and shown, never written. The plugin does not write `config.json`.
+  Other plugins' settings documents can be read on every host, with secrets masked.
+- Tier B, off by default, per target host. With `allowPluginSettingsWrites` switched on in this
+  plugin's settings on the target host, the companion there writes other plugins' settings
+  documents. It checks the document has not changed since it was read, keeps a `.bak` (restore swaps
+  the two), writes atomically with mode 0600, and keeps masked values as the target had them. The
+  hub never offers a toggle for this; the consent belongs to whoever runs the target. Anyone who can
+  authenticate to that host can switch it, though. The plugin refuses to write its own settings
+  remotely.
+
+Secrets are masked by key name (`token`, `password`, `dsn`, `connectionString` and similar) and by
+value shape (API key prefixes, bearer tokens, URLs with a user or password). A masked value is never
+sent to the client, and a paste never overwrites a target's secret with a placeholder. The daemon
+password and plugin registry credentials appear as rows only to say they are never copied.
+
+Nothing is written before Apply. Apply runs as a job on the hub, one host after the other, the hub
+last. Turning the plugin switch or the relay on goes first on a host, turning them off goes last,
+since either can cut the hub's link to that host. Those switch-offs, and removing or disabling this
+plugin on a remote host, need an extra lockout confirmation; removing or disabling it on the hub is
+refused. Installs need a trust confirmation, removals a destructive one. Failed items stay in the
+drawer with Retry.
+
+A settings document written to another plugin shows "written, validity unknown" until that plugin is
+reloaded: the plugin cannot tell whether the target accepts the new values, so it says so and offers
+the reload.
+
+Plugin management is not part of the API Paseo gives plugins. The plugin reaches it through
+`@getpaseo/client/internal/daemon-client` and `openHostRoute`, isolated in
+`server/broker/daemon-client.ts`. That is an internal API and may break between Paseo releases, which
+is why the client package is pinned and every release gets a matrix run.
+
+## Install
+
+```sh
+paseo plugin add git:SeriousM/paseo-multi-host-manager
+```
+
+Or from a checkout:
+
+```sh
+paseo plugin install /absolute/path/to/this/repository
+```
+
+Plugins run trusted and unsandboxed with the daemon user's access to the machine, files included.
+This one also connects to your other hosts with the hub's saved credentials. Read the source before
+installing.
+
+The plugin is needed on every host you want to manage, not only on the hub: the companion part reads
+the OS, the restart-only keys and the settings documents there. A host without it shows those rows as
+unavailable, and its capabilities dialog has an "Install companion" button that stages the install
+from the registry. Apply it like any other install.
+
+## Requirements
+
+- Paseo 0.13.0 or later on every host; that is where routing through a hub arrived. Tested up to
+  0.14.0. Newer stable versions are marked untested, not blocked.
+- The "Release idle agent runtimes" row needs 0.14.0 on the target. Older hosts show "needs newer
+  Paseo" for it. Features are detected per host from what the daemon reports.
+- The hub needs the other hosts saved in its daemon (`paseo host add`). The hosts in the app's own
+  host list are a different list and are not used.
+
+## Development
+
+```sh
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run pack:check     # npm tarball contents: runtime files in, testenv/docs/.local out
+```
+
+The integration tests need real daemons. `testenv/` starts two throwaway ones (Windows on port 6768,
+Debian under WSL on 6769), saves them on the hub next to a wrong-password entry, and installs the
+packed plugin on all three. It expects the Paseo desktop app, a hub on 127.0.0.1:6767 and WSL, so it
+is local only (`npm ci` in `testenv/` first).
+
+```sh
+node testenv/up.mjs
+npm run test:integration
+node testenv/down.mjs
+```
+
+`npm run matrix [-- --paseo <version|beta>]` does all three, always tears down, checks the hub is
+left as it was, and prints a pass/fail table. I run it against the minimum, the tested version and
+the `beta` dist-tag before a release.
+
+To test an install the way the registry does it, `npm pack` and install the tarball on a hub. A
+directory install resolves modules from parent `node_modules` folders and can pass by accident.
+
+CI runs typecheck, lint, unit tests, the package check, the screenshot check and a bundle compile.
+
+## Layout
+
+```
+index.client.tsx     app entry: screen, sidebar item, command center item
+index.server.ts      daemon entry: broker RPCs, apply jobs, companion
+client/              React Native UI: grid, compact view, clipboard bar, staging drawer, dialogs, editor
+server/broker/       own-daemon session, routed host clients, capability gating
+server/companion/    per-host side: host info, restart-only keys, plugin settings documents
+server/rows/         reading and patching the setting rows, plugin operations
+server/rpc/          grid load, apply and apply jobs, document reads
+shared/              Zod contracts, rows, masking, error codes, broker policy
+test/                unit tests and the integration suite
+testenv/             throwaway daemons and the release matrix (not packed)
+tools/               package and screenshot checks
+docs/design/         design notes, row mapping, capability flags
+```
+
+## License
+
+MIT
