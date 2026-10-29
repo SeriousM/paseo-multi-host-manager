@@ -21,8 +21,8 @@ export function readJson(file) {
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
 }
 
-export function run(cmd, args, input) {
-  const r = spawnSync(cmd, args, { encoding: "utf8", input, windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
+export function run(cmd, args, input, cwd) {
+  const r = spawnSync(cmd, args, { encoding: "utf8", input, cwd, windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
   return { code: r.status ?? 1, out: r.stdout ?? "", err: r.stderr ?? "" };
 }
 

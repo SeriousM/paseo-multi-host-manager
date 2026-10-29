@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { installPlugin } from "./plugin.mjs";
 import { envDir, hubClient, readJson, secretsPath, sleep, statePath, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 
 const NODE_VERSION = "22.19.0";
@@ -66,5 +67,6 @@ const listed = (await hub.listHosts()).hosts;
 for (const h of state.hubHosts) h.serverId = listed.find((x) => x.registrationId === h.registrationId)?.serverId ?? h.serverId;
 save();
 await hub.close();
+await installPlugin(state, save);
 console.log("testenv up. Metadata in .testenv/state.json; run status.mjs.");
 process.exit(0);

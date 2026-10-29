@@ -1,5 +1,6 @@
 // Removes only the hub hosts recorded in state.json, stops both daemons, deletes both homes and .testenv. Idempotent.
 import fs from "node:fs";
+import { removeHubPlugin } from "./plugin.mjs";
 import { run, envDir, hubClient, readJson, statePath, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 
 const state = readJson(statePath);
@@ -12,6 +13,11 @@ if (state?.hubHosts?.length) {
   } catch (e) {
     console.error("hub cleanup failed:", String(e).slice(0, 200));
   }
+}
+try {
+  await removeHubPlugin(state);
+} catch (e) {
+  console.error("hub plugin removal failed:", String(e).slice(0, 200));
 }
 if (fs.existsSync(winHome)) winPaseo("daemon", "stop", "--home", winHome, "--force");
 wsl(`if [ -x ${wslDir}/tools/cli/node_modules/.bin/paseo ] && [ -d ${wslHome} ]; then ${wslPaseo} daemon stop --home ${wslHome} --force; fi; rm -rf ${wslDir}`);
