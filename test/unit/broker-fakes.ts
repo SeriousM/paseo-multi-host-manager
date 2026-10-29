@@ -45,12 +45,18 @@ export interface FakeClient {
   routed: RoutedClient;
   close: Mock;
   patchDaemonConfig: Mock;
+  /** Makes `isConnected` false, like a lost connection. */
+  disconnect: () => void;
 }
 
 export function fakeClient(options: { info: ServerInfoStatusPayload | null; directory?: HostDirectory | Error; config?: MutableDaemonConfig }): FakeClient {
   const close = vi.fn(async () => undefined);
   const patchDaemonConfig = vi.fn(async () => ({ requestId: "r", config: options.config ?? {} }));
+  const state = { connected: true };
   const fake = {
+    get isConnected() {
+      return state.connected;
+    },
     close,
     patchDaemonConfig,
     getLastServerInfoMessage: () => options.info,
@@ -61,7 +67,10 @@ export function fakeClient(options: { info: ServerInfoStatusPayload | null; dire
     },
   };
   const client = fake as unknown as DaemonClient;
-  return { client, routed: { client, close }, close, patchDaemonConfig };
+  const disconnect = () => {
+    state.connected = false;
+  };
+  return { client, routed: { client, close }, close, patchDaemonConfig, disconnect };
 }
 
 export function codedError(message: string, code: string): Error {

@@ -1,11 +1,11 @@
 import type { BrokerPolicy, HostResult, LinkKind } from "../../shared/contracts";
 import { callHost } from "./call";
-import { connectOriginClient } from "./daemon-client";
 import type { DaemonClient } from "./daemon-client";
-import { failureFromError, hostFailure } from "./failures";
+import { failureFromError } from "./failures";
 import { hostEntries } from "./hosts";
 import type { HostEntry } from "./hosts";
-import { readHubAddress, readLocalCredential } from "./origin";
+import { readHubAddress } from "./origin";
+import type { OriginSession } from "./origin-session";
 
 export const OVERVIEW_TIMEOUT_MS = 10_000;
 
@@ -43,18 +43,11 @@ async function overviewViaOrigin(origin: DaemonClient, policy: BrokerPolicy, tim
 }
 
 /** Hub plus every saved host with its capability snapshot or failure. One routed connection per host, all hosts in parallel. */
-export async function hostsOverview(home: string, policy: BrokerPolicy, timeoutMs = OVERVIEW_TIMEOUT_MS): Promise<HostOverview[]> {
-  const address = readHubAddress(home);
-  if (!address) return hubOnly(null, { ok: false, error: hostFailure("host_offline", "no_pid_file") });
-  let origin: DaemonClient;
+export async function hostsOverview(origin: OriginSession, home: string, policy: BrokerPolicy, timeoutMs = OVERVIEW_TIMEOUT_MS): Promise<HostOverview[]> {
   try {
-    origin = await connectOriginClient(address.listen, () => readLocalCredential(home));
+    return await origin.use((client) => overviewViaOrigin(client, policy, timeoutMs));
   } catch (error) {
-    return hubOnly(address.serverId, { ok: false, error: failureFromError(error, "host_offline") });
-  }
-  try {
-    return await overviewViaOrigin(origin, policy, timeoutMs);
-  } finally {
-    await origin.close().catch(() => undefined);
+    // Only the hub connect throws (overviewViaOrigin reports per host); `home` names the hub without a connection.
+    return hubOnly(readHubAddress(home)?.serverId ?? null, { ok: false, error: failureFromError(error, "host_offline") });
   }
 }

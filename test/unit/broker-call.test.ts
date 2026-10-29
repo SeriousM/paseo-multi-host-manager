@@ -8,6 +8,7 @@ import type { DaemonClient } from "../../server/broker/daemon-client";
 import type * as DaemonClientModule from "../../server/broker/daemon-client";
 import type { HostEntry } from "../../server/broker/hosts";
 import { paseoHome, readHubAddress } from "../../server/broker/origin";
+import { connectHubOrigin, OriginSession } from "../../server/broker/origin-session";
 import { hostsOverview } from "../../server/broker/overview";
 import { codedError, fakeClient, savedHost, SECRETS, serverInfo } from "./broker-fakes";
 import type { FakeClient } from "./broker-fakes";
@@ -214,6 +215,19 @@ describe("hostsOverview", () => {
     ],
   };
 
+  let sessions: OriginSession[] = [];
+  afterEach(async () => {
+    for (const session of sessions) await session.close();
+    sessions = [];
+  });
+
+  /** A fresh session per home, as index.server.ts creates one per plugin load. */
+  function sessionFor(home: string): OriginSession {
+    const session = new OriginSession(() => connectHubOrigin(home));
+    sessions.push(session);
+    return session;
+  }
+
   it("lists the hub and every saved host with a snapshot or failure, without secrets", async () => {
     const home = makeHome({ listen: "0.0.0.0:6767", serverId: "srv_hub" });
     const origin = fakeClient({ info: serverInfo("srv_hub", "0.13.2"), directory });
@@ -225,7 +239,8 @@ describe("hostsOverview", () => {
     };
     routed.mockImplementation(async (_origin, serverId) => targets[serverId].routed);
 
-    const hosts = await hostsOverview(home, policy);
+    const session = sessionFor(home);
+    const hosts = await hostsOverview(session, home, policy);
 
     expect(hosts.map((host) => [host.id, host.label, host.link, host.isHub, host.result.ok ? "ok" : host.result.error.code])).toEqual([
       ["srv_hub", "hub-label", "loopback", true, "ok"],
@@ -238,44 +253,54 @@ describe("hostsOverview", () => {
     expect(hosts.map((host) => host.registrationId)).toEqual([null, "reg_srv_W", "reg_srv_L", "reg_srv_pw", "reg_srv_plain", "reg_srv_beta"]);
     expect(originConnect.mock.calls[0][0]).toBe("127.0.0.1:6767");
     expect(originConnect.mock.calls[0][1]()).toBe(SECRETS.credential);
-    expect(origin.close).toHaveBeenCalledTimes(1);
+    // The hub connection stays open for the next call; routed clients close per call.
+    expect(origin.close).not.toHaveBeenCalled();
     for (const target of Object.values(targets)) expect(target.close).toHaveBeenCalledTimes(1);
+    await hostsOverview(session, home, policy);
+    expect(originConnect).toHaveBeenCalledTimes(1);
+    await session.close();
+    expect(origin.close).toHaveBeenCalledTimes(1);
     expectNoSecrets(hosts);
   });
 
   it("returns a hub failure when paseo.pid is missing", async () => {
-    const hosts = await hostsOverview(makeHome(null), policy);
-    expect(hosts).toMatchObject([{ id: "hub", isHub: true, result: { ok: false, error: { code: "host_offline" } } }]);
+    const home = makeHome(null);
+    const hosts = await hostsOverview(sessionFor(home), home, policy);
+    expect(hosts).toMatchObject([{ id: "hub", isHub: true, result: { ok: false, error: { code: "host_offline", detail: "no_pid_file" } } }]);
     expect(originConnect).not.toHaveBeenCalled();
   });
 
   it("returns authentication_failed when the hub rejects the local credential", async () => {
     originConnect.mockRejectedValue(new DaemonAuthenticationError("incorrect_password"));
-    const hosts = await hostsOverview(makeHome({ listen: "127.0.0.1:6767", serverId: "srv_hub" }), policy);
+    const home = makeHome({ listen: "127.0.0.1:6767", serverId: "srv_hub" });
+    const hosts = await hostsOverview(sessionFor(home), home, policy);
     expect(hosts).toMatchObject([{ id: "srv_hub", isHub: true, result: { ok: false, error: { code: "authentication_failed" } } }]);
     expectNoSecrets(hosts);
   });
 
   it("returns host_offline when the hub is unreachable", async () => {
     originConnect.mockRejectedValue(codedError("connect ECONNREFUSED 127.0.0.1:6767", "ECONNREFUSED"));
-    const hosts = await hostsOverview(makeHome({ listen: "127.0.0.1:6767" }), policy);
+    const home = makeHome({ listen: "127.0.0.1:6767" });
+    const hosts = await hostsOverview(sessionFor(home), home, policy);
     expect(hosts).toMatchObject([{ id: "hub", result: { ok: false, error: { code: "host_offline" } } }]);
   });
 
   it("stops at the hub when the hub fails its own gates", async () => {
     const origin = fakeClient({ info: serverInfo("srv_hub", "0.14.0-beta.2"), directory });
     originConnect.mockResolvedValue(origin.client);
-    const hosts = await hostsOverview(makeHome({ listen: "127.0.0.1:6767" }), policy);
+    const home = makeHome({ listen: "127.0.0.1:6767" });
+    const hosts = await hostsOverview(sessionFor(home), home, policy);
     expect(hosts).toMatchObject([{ id: "srv_hub", result: { ok: false, error: { code: "prerelease_blocked" } } }]);
     expect(routed).not.toHaveBeenCalled();
-    expect(origin.close).toHaveBeenCalledTimes(1);
+    expect(origin.close).not.toHaveBeenCalled();
   });
 
   it("returns a hub failure when the host list cannot be read", async () => {
     const origin = fakeClient({ info: serverInfo("srv_hub", "0.13.2"), directory: codedError("nope", "permission_denied") });
     originConnect.mockResolvedValue(origin.client);
-    const hosts = await hostsOverview(makeHome({ listen: "127.0.0.1:6767" }), policy);
+    const home = makeHome({ listen: "127.0.0.1:6767" });
+    const hosts = await hostsOverview(sessionFor(home), home, policy);
     expect(hosts).toMatchObject([{ id: "srv_hub", result: { ok: false, error: { code: "host_error", detail: "permission_denied" } } }]);
-    expect(origin.close).toHaveBeenCalledTimes(1);
+    expect(origin.close).not.toHaveBeenCalled();
   });
 });
