@@ -59,7 +59,7 @@ export const hostInfoRpc = defineRpc({
 export const configReadRpc = defineRpc({
   name: "mhm.config.read",
   input: z.object({}),
-  output: z.object({ revision: z.string(), values: z.record(z.string(), z.json()), maskedPaths: z.array(z.string()) }),
+  output: okOrFailure({ revision: z.string(), values: z.record(z.string(), z.json()), maskedPaths: z.array(z.string()) }),
 });
 
 export const settingsListRpc = defineRpc({

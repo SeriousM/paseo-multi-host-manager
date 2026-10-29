@@ -76,6 +76,7 @@ describe("config.read", () => {
       agents: { providers: { claude: { enabled: true, env: { ANTHROPIC_API_KEY: "sk-live" } } } },
     });
     expect(readConfig(ctx)).toEqual({
+      ok: true,
       revision,
       values: { "daemon.listen": "127.0.0.1:6767", "worktrees.root": "/wt", "log.console.level": "info" },
       maskedPaths: [],
@@ -86,7 +87,17 @@ describe("config.read", () => {
   });
 
   it("returns the 'missing' revision and no values without a file", () => {
-    expect(readConfig(ctx)).toEqual({ revision: "missing", values: {}, maskedPaths: [] });
+    expect(readConfig(ctx)).toEqual({ ok: true, revision: "missing", values: {}, maskedPaths: [] });
+  });
+
+  it.each(["{ not json", "[1, 2]", "null"])("reports an unparseable config.json (%s) as invalid_document, not as empty values", (content) => {
+    fs.writeFileSync(configFile(), content);
+    expect(readConfig(ctx)).toEqual({
+      ok: false,
+      code: "invalid_document",
+      message: expect.any(String),
+      currentRevision: revisionOf(Buffer.from(content)),
+    });
   });
 });
 

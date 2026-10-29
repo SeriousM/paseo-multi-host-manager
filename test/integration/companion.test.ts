@@ -89,7 +89,7 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     files.write("config.json", JSON.stringify(document, null, 2));
     try {
       const read = await call(configReadRpc, {});
-      expect(read.values).toEqual({
+      expect(read.ok && read.values).toEqual({
         "daemon.listen": `127.0.0.1:${key === "W" ? 6768 : 6769}`,
         "worktrees.root": "mhm-worktrees-test",
         "log.console.level": "info",
