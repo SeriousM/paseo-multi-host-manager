@@ -98,6 +98,6 @@ describe("pluginSource", () => {
   });
 
   it("names our own registry source by the confirmed registry id", () => {
-    expect(OWN_INSTALL_SOURCE).toBe("seriousm/multi-host-manager-paseo-plugin");
+    expect(OWN_INSTALL_SOURCE).toBe("seriousm/paseo-multi-host-manager");
   });
 });

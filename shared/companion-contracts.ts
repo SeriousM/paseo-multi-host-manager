@@ -7,7 +7,7 @@ export const OWN_PLUGIN_ID = "paseo-multi-host-manager";
  * Registry install source of this plugin, in the `<owner>/<name>` form `installPluginSource` takes for the default
  * registry (the registry id the owner confirmed; it differs from OWN_PLUGIN_ID). A registry install cannot pin a version.
  */
-export const OWN_INSTALL_SOURCE = "seriousm/multi-host-manager-paseo-plugin";
+export const OWN_INSTALL_SOURCE = "seriousm/paseo-multi-host-manager";
 
 export const consentSchema = z.object({
   allowPluginSettingsWrites: z.boolean().default(false),
