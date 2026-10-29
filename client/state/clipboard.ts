@@ -1,5 +1,6 @@
 import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
 import { MASK_PLACEHOLDER } from "../../shared/mask";
+import type { Json } from "../../shared/mask";
 import { ROW_BY_ID } from "../../shared/rows";
 import { findHost, hostData, pluginRows, sameJson } from "./grid-model";
 import { hostRef, itemOnHost } from "./staging";
@@ -73,7 +74,17 @@ function pasteRow(clip: Extract<ClipboardEntry, { kind: "row" }>, target: GridHo
   if (row.id !== "prov" && JSON.stringify(clip.value).includes(MASK_PLACEHOLDER)) return refuse("contains masked secrets");
   const current = hostData(target)?.rows[clip.rowId];
   if (current?.state === "ok" && sameJson(current.value, clip.value)) return refuse("identical", true);
-  const note = row.id === "prov" ? "updates providers the host already has; new ones are ignored" : "applied live";
+  let note = "applied live";
+  if (row.id === "prov") {
+    // The server only updates providers the target already has (server/rows/patch.ts `existingProvidersOnly`).
+    const ids = (value: Json) => (value !== null && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : []);
+    const pasted = ids(clip.value);
+    // null: the target's providers cannot be read, so only the server can tell which exist.
+    const existing = current?.state === "ok" ? ids(current.value) : current === undefined || current.state === "absent" ? [] : null;
+    const missing = existing === null ? [] : pasted.filter((id) => !existing.includes(id));
+    if (pasted.length > 0 && missing.length === pasted.length) return refuse("none of these providers exist on this host; providers are only updated, not created, from here");
+    note = missing.length > 0 ? `updates the providers the host already has; not created here: ${missing.join(", ")}` : "updates providers the host already has; new ones are ignored";
+  }
   return { ok: true, inputs: [{ op: "setRow", host: hostRef(target), rowId: clip.rowId, value: clip.value }], note };
 }
 

@@ -8,6 +8,7 @@ import {
   comparePluginCell,
   compareRow,
   compareRowCell,
+  copyFromBaseline,
   differenceCount,
   planBaselineSync,
   rowHasDifferences,
@@ -185,6 +186,19 @@ describe("baseline in the grid", () => {
       ["installPlugin", ["trust"]],
     ]);
     expect(differenceCount(state, "b")).toBe(0);
+  });
+
+  it("stages a providers difference only where the target has some of the baseline's providers", () => {
+    const provHub = host("hub", { ...BASE_ROWS, prov: ok({ claude: { enabled: true }, codex: { enabled: true } }) }, HUB_PLUGINS, true);
+    const none = host("n", { ...BASE_ROWS, prov: ok({ other: { enabled: false } }) }, HUB_PLUGINS);
+    const absent = host("x", BASE_ROWS, HUB_PLUGINS);
+    const some = host("s", { ...BASE_ROWS, prov: ok({ claude: { enabled: false } }) }, HUB_PLUGINS);
+    const state = withBaseline([provHub, none, absent, some]);
+    const refusal = { label: "Custom providers", reason: "none of these providers exist on this host; providers are only updated, not created, from here" };
+    expect(planBaselineSync(state, "n")).toEqual({ inputs: [], refusals: [refusal] });
+    expect(planBaselineSync(state, "x")).toEqual({ inputs: [], refusals: [refusal] });
+    expect(planBaselineSync(state, "s").inputs).toEqual([{ op: "setRow", host: "reg-s", rowId: "prov", value: { claude: { enabled: true }, codex: { enabled: true } } }]);
+    expect(copyFromBaseline(state, { kind: "row", rowId: "prov", hostId: "s" })).toMatchObject({ ok: true, note: "updates the providers the host already has; not created here: codex" });
   });
 
   it("keeps the baseline across reloads (by registration id), drops it when the host goes, and pulls the compact view from it", () => {
