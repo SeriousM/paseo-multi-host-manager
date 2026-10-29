@@ -18,9 +18,9 @@ vi.mock("../../server/broker/daemon-client", async (importOriginal) => ({
   connectRoutedClient: vi.fn(),
 }));
 
-const policy = { allowPrerelease: false, insecureLinkHostIds: [] };
+const policy = { allowPrerelease: false, insecureLinkRegistrationIds: [] };
 const request = { policy, requiredFeatures: [], timeoutMs: 1_000, run: async () => "value" };
-const remote: HostEntry = { id: "srv_W", label: "W", link: "relay", isHub: false, unavailable: null };
+const remote: HostEntry = { id: "srv_W", registrationId: "reg_W", label: "W", link: "relay", isHub: false, unavailable: null };
 const routed = vi.mocked(connectRoutedClient);
 const originConnect = vi.mocked(connectOriginClient);
 
@@ -83,8 +83,19 @@ describe("callHost", () => {
     expect(routed).not.toHaveBeenCalled();
 
     routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).client);
-    const allowed = await callHost(origin.client, unverified, { ...request, policy: { ...policy, insecureLinkHostIds: ["srv_W"] } });
+    const allowed = await callHost(origin.client, unverified, { ...request, policy: { ...policy, insecureLinkRegistrationIds: ["reg_W"] } });
     expect(allowed.ok).toBe(true);
+  });
+
+  it("keys the insecure-link opt-in by registration id, which survives the host id flipping to the server id", async () => {
+    routed.mockResolvedValue(fakeClient({ info: serverInfo("srv_W", "0.13.2") }).client);
+    const optIn = { ...request, policy: { ...policy, insecureLinkRegistrationIds: ["reg_W"] } };
+    const neverReached: HostEntry = { ...remote, id: "reg_W", link: "tcp-plain" };
+    const reached: HostEntry = { ...remote, id: "srv_W", link: "tcp-plain" };
+    expect((await callHost(origin.client, neverReached, optIn)).ok).toBe(true);
+    expect((await callHost(origin.client, reached, optIn)).ok).toBe(true);
+    const byServerId = { ...request, policy: { ...policy, insecureLinkRegistrationIds: ["srv_W"] } };
+    expect(await callHost(origin.client, reached, byServerId)).toMatchObject({ ok: false, error: { code: "insecure_link" } });
   });
 
   it.each(["relay", "ssh", "loopback", "tls"] as const)("allows %s links without an opt-out", async (link) => {
@@ -205,6 +216,7 @@ describe("hostsOverview", () => {
       ["srv_plain", "label-srv_plain", "tcp-plain", false, "insecure_link"],
       ["srv_beta", "label-srv_beta", "loopback", false, "prerelease_blocked"],
     ]);
+    expect(hosts.map((host) => host.registrationId)).toEqual([null, "reg_srv_W", "reg_srv_L", "reg_srv_pw", "reg_srv_plain", "reg_srv_beta"]);
     expect(originConnect.mock.calls[0][0]).toBe("127.0.0.1:6767");
     expect(originConnect.mock.calls[0][1]()).toBe(SECRETS.credential);
     expect(origin.close).toHaveBeenCalledTimes(1);

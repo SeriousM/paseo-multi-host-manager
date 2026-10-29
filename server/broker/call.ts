@@ -48,7 +48,8 @@ async function connectAndRun<T>(origin: DaemonClient, host: HostEntry, request: 
  */
 export async function callHost<T>(origin: DaemonClient, host: HostEntry, request: HostRequest<T>): Promise<HostResult<T>> {
   const unverifiedLink = host.link === "tcp-plain" || host.link === "unknown";
-  if (unverifiedLink && !request.policy.insecureLinkHostIds.includes(host.id)) {
+  const allowed = host.registrationId !== null && request.policy.insecureLinkRegistrationIds.includes(host.registrationId);
+  if (unverifiedLink && !allowed) {
     return { ok: false, error: hostFailure("insecure_link") };
   }
   if (host.unavailable) return { ok: false, error: host.unavailable };

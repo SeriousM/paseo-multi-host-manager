@@ -24,9 +24,10 @@ describe.skipIf(!enabled)("broker through the hub plugin", () => {
     const hosts = overview();
     expect(hosts[0]?.isHub).toBe(true);
     for (const key of ["W", "L"]) {
-      const serverId = state.hubHosts.find((h) => h.key === key)?.serverId;
-      const host = hosts.find((h) => h.id === serverId);
+      const entry = state.hubHosts.find((h) => h.key === key);
+      const host = hosts.find((h) => h.id === entry?.serverId);
       expect(host, key).toBeDefined();
+      expect(host?.registrationId).toBe(entry?.registrationId);
       expect(host?.link).toBe("relay");
       expect(host?.result.ok).toBe(true);
     }

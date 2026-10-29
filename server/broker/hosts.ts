@@ -5,6 +5,8 @@ import { failureFromCode, hostFailure } from "./failures";
 export interface HostEntry {
   /** Server id; the registration id while the hub has never reached the host. */
   id: string;
+  /** Stable id of the hub's saved-host entry (unlike `id`, it never changes); null for the hub itself. */
+  registrationId: string | null;
   label: string;
   link: LinkKind;
   isHub: boolean;
@@ -46,11 +48,12 @@ function unavailableReason(host: HostSummary): HostFailure | null {
 
 /** Hub first, then the hub's saved hosts. Connection strings are dropped here and never leave this module. */
 export function hostEntries(directory: HostDirectory): HostEntry[] {
-  const hub: HostEntry = { id: directory.self.serverId, label: directory.self.label, link: "loopback", isHub: true, unavailable: null };
+  const hub: HostEntry = { id: directory.self.serverId, registrationId: null, label: directory.self.label, link: "loopback", isHub: true, unavailable: null };
   return [
     hub,
     ...directory.hosts.map((host) => ({
       id: host.serverId ?? host.registrationId,
+      registrationId: host.registrationId,
       label: host.label ?? host.serverId ?? host.registrationId,
       link: classifyLink(host.targetDescription),
       isHub: false,

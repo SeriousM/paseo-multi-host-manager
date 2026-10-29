@@ -46,7 +46,8 @@ export function hostResultSchema<T extends ZodType>(value: T) {
 /** Per-call policy; persisting the user's choices is up to the caller. */
 export const brokerPolicySchema = z.object({
   allowPrerelease: z.boolean().default(false),
-  insecureLinkHostIds: z.array(z.string()).default([]),
+  /** Saved-host registration ids the user allowed over a `tcp-plain` or `unknown` link. Registration ids are stable, server ids appear only once the hub reached a host. */
+  insecureLinkRegistrationIds: z.array(z.string()).default([]),
 });
 export type BrokerPolicy = z.infer<typeof brokerPolicySchema>;
 
@@ -57,6 +58,7 @@ export const hostsOverviewRpc = defineRpc({
     hosts: z.array(
       z.object({
         id: z.string(),
+        registrationId: z.string().nullable(),
         label: z.string(),
         link: linkKindSchema,
         isHub: z.boolean(),

@@ -6,7 +6,7 @@ import { failureFromCode, failureFromError } from "../../server/broker/failures"
 import { classifyLink, hostEntries } from "../../server/broker/hosts";
 import { codedError, fakeClient, savedHost, SECRETS, serverInfo } from "./broker-fakes";
 
-const policy = { allowPrerelease: false, insecureLinkHostIds: [] };
+const policy = { allowPrerelease: false, insecureLinkRegistrationIds: [] };
 
 describe("classifyLink", () => {
   it.each([
@@ -50,6 +50,7 @@ describe("hostEntries", () => {
       ["srv_odd", false, "loopback", "host_error"],
     ]);
     expect(entries[5].unavailable?.detail).toBe("server_id_mismatch");
+    expect(entries.map((entry) => entry.registrationId)).toEqual([null, "reg_srv_ok", "reg_srv_pw", "reg_srv_off", "reg_new", "reg_srv_odd"]);
     expect(JSON.stringify(entries)).not.toContain(SECRETS.relayEndpoint);
   });
 });
