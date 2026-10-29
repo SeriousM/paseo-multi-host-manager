@@ -20,8 +20,13 @@ export const desktopExe = path.join(process.env.LOCALAPPDATA, "Programs", "Paseo
 export const toolsDir = path.join(envDir, "tools");
 export const winCliDir = path.join(toolsDir, "cli");
 export const winCliExe = path.join(winCliDir, "node_modules", ".bin", "paseo.cmd");
-export const hubHome = process.env.PASEO_HOME ?? path.join(os.homedir(), ".paseo");
-export const hubAddress = "127.0.0.1:6767";
+// The testenv's hub is its own throwaway daemon in .testenv, never the user's: up.mjs starts it, down.mjs stops it and
+// deletes its home. The user's daemon is only ever read, for the before/after snapshot (`ownerHubSnapshot`).
+export const hubHome = path.join(envDir, "home-hub");
+export const HUB_PORT = 6770;
+export const hubAddress = `127.0.0.1:${HUB_PORT}`;
+const ownerHome = process.env.PASEO_HOME ?? path.join(os.homedir(), ".paseo");
+const ownerAddress = "127.0.0.1:6767";
 export const wslPaseo = `PATH=${wslDir}/tools/node/bin:$PATH ${wslDir}/tools/cli/node_modules/.bin/paseo`;
 
 export function readJson(file) {
@@ -37,23 +42,41 @@ export const winPaseo = (...args) => run("cmd", ["/c", readJson(statePath)?.wind
 // Script goes through stdin: wsl.exe re-parses argv through a shell, which mangles $PATH and quotes.
 export const wsl = (script) => run("wsl", ["-d", "Debian", "--", "bash", "-s"], script + "\n");
 
-export async function hubClient() {
-  const client = createHostClient(hubAddress, {
-    clientId: "mhm-testenv",
+function connect(address, home, clientId) {
+  const client = createHostClient(address, {
+    clientId,
     reconnect: { enabled: false },
-    localCredential: () => fs.readFileSync(path.join(hubHome, "local-credential"), "utf8").trim(),
+    localCredential: () => fs.readFileSync(path.join(home, "local-credential"), "utf8").trim(),
   });
-  await client.connect();
-  return client;
+  return client.connect().then(() => client);
+}
+
+/** The testenv's own hub (127.0.0.1:6770, home .testenv/home-hub). */
+export function hubClient() {
+  return connect(hubAddress, hubHome, "mhm-testenv");
+}
+
+/** `config.json` of the testenv hub: loopback only, no password, no relay of its own (it reaches W and L over theirs). */
+export function hubConfig() {
+  return JSON.stringify({ version: 1, daemon: { listen: hubAddress, relay: { enabled: false } }, pluginsEnabled: true }, null, 2);
 }
 
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** The hub's saved hosts and plugin list (no connection strings, no volatile status fields), for before/after comparison. */
-export async function hubSnapshot() {
-  const client = await hubClient();
+/**
+ * The user's own daemon, read only: its saved hosts and plugin list (no connection strings, no volatile status
+ * fields), so the matrix can show the harness left it alone. Null when that daemon is not running.
+ */
+export async function ownerHubSnapshot() {
+  if (!fs.existsSync(path.join(ownerHome, "local-credential"))) return null;
+  let client;
+  try {
+    client = await connect(ownerAddress, ownerHome, "mhm-testenv-snapshot");
+  } catch {
+    return null;
+  }
   try {
     const hosts = (await client.listHosts()).hosts.map((h) => ({ registrationId: h.registrationId, serverId: h.serverId, label: h.label, enabled: h.enabled, target: h.targetDescription }));
     const plugins = await client.listPlugins();

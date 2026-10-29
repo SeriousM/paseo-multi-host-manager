@@ -1,13 +1,15 @@
-// Creates two throwaway Paseo daemons (Windows :6768, WSL Debian :6769) and saves them on the hub plus a wrong-password entry.
+// Creates a throwaway hub (Windows :6770, home .testenv/home-hub) and two throwaway hosts (Windows :6768, WSL Debian
+// :6769), saves the hosts on that hub plus a wrong-password entry, and installs the packed plugin on all three.
+// The user's own daemon is never written to. The hub runs on the desktop app's CLI, like a user's hub would.
 // `--paseo <version|beta>` runs W and L on that daemon version (npm @getpaseo/cli); the default is the desktop app's CLI on W and 0.13.2 on L.
-// `--demo` builds the listing-screenshot setup instead, with its own throwaway hub (see demo.mjs).
+// `--demo` builds the listing-screenshot setup instead (see demo.mjs).
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { demoUp } from "./demo.mjs";
 import { installPlugin } from "./plugin.mjs";
-import { desktopExe, envDir, hubClient, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
+import { desktopExe, envDir, HUB_PORT, hubClient, hubConfig, hubHome, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 
 const NODE_VERSION = "22.19.0";
 if (process.argv.includes("--demo")) {
@@ -32,7 +34,14 @@ if (fs.existsSync(statePath)) {
 }
 fs.mkdirSync(envDir, { recursive: true });
 fs.mkdirSync(winHome, { recursive: true });
-const state = { paseo: requested ?? "default", hubHosts: [], windows: { port: 6768, home: winHome, exe: requested ? winCliExe : desktopExe }, wsl: { distro: "Debian", port: 6769, home: wslHome } };
+fs.mkdirSync(hubHome, { recursive: true });
+const state = {
+  paseo: requested ?? "default",
+  hub: { port: HUB_PORT, home: hubHome, exe: desktopExe },
+  hubHosts: [],
+  windows: { port: 6768, home: winHome, exe: requested ? winCliExe : desktopExe },
+  wsl: { distro: "Debian", port: 6769, home: wslHome },
+};
 const secrets = { windows: randomBytes(12).toString("hex"), wsl: randomBytes(12).toString("hex") };
 const save = () => {
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
@@ -53,6 +62,11 @@ const pairUri = (out) => {
   return uri;
 };
 
+save();
+// Hub: started first, so down.mjs (which reads state.hub) can always stop it.
+fs.writeFileSync(path.join(hubHome, "config.json"), hubConfig());
+must(run("cmd", ["/c", desktopExe, "daemon", "start", "--home", hubHome]), "start hub");
+state.hub.version = must(run("cmd", ["/c", desktopExe, "--version"]), "hub version").trim();
 save();
 // Host W
 if (requested) {
@@ -95,6 +109,6 @@ const listed = (await hub.listHosts()).hosts;
 for (const h of state.hubHosts) h.serverId = listed.find((x) => x.registrationId === h.registrationId)?.serverId ?? h.serverId;
 save();
 await hub.close();
-await installPlugin(state, save);
+await installPlugin();
 console.log("testenv up. Metadata in .testenv/state.json; run status.mjs.");
 process.exit(0);

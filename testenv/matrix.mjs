@@ -1,13 +1,14 @@
 // Release canary: testenv up -> integration suite -> testenv down, then a compact pass/fail table.
-// Always runs down (also after a failure or Ctrl-C) and compares the hub snapshot before and after.
+// Always runs down (also after a failure or Ctrl-C). The testenv brings its own hub, so the user's daemon is only read:
+// its saved hosts and plugins before and after, shown as a note (it never fails the run, the user may change them).
 //
 // Usage: npm run matrix [-- --paseo <version|beta>]
-// Local only: needs the Paseo desktop app, a running hub on 127.0.0.1:6767 and WSL (Debian).
+// Local only: needs the Paseo desktop app (its CLI runs the hub and, by default, W) and WSL (Debian).
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { envDir, hubSnapshot, readJson, root, secretsPath, statePath, winDir } from "./common.mjs";
+import { envDir, ownerHubSnapshot, readJson, root, secretsPath, statePath, winDir } from "./common.mjs";
 
 const flag = process.argv.indexOf("--paseo");
 const paseo = flag === -1 ? null : process.argv[flag + 1];
@@ -80,7 +81,7 @@ function summarize(report) {
   return rows;
 }
 
-const before = await hubSnapshot();
+const before = await ownerHubSnapshot().catch(() => null);
 let state = null;
 let testsOk = false;
 let rows = null;
@@ -112,16 +113,12 @@ try {
   if (down.code !== 0) failureNote += `\ntestenv down failed:\n${tail(down.output)}`;
 }
 
-let hubOk = false;
-try {
-  hubOk = (await hubSnapshot()) === before;
-} catch (e) {
-  failureNote += `\nhub snapshot after failed: ${redact(String(e)).slice(0, 200)}`;
-}
+const after = before === null ? null : await ownerHubSnapshot().catch(() => null);
+const ownerNote = before === null ? "not running, not checked" : after === before ? "unchanged" : "changed during the run (the testenv never writes there)";
 const gone = !fs.existsSync(envDir) && !fs.existsSync(winDir);
 
 const pad = (text, width) => String(text).padEnd(width);
-console.log(`\nPaseo ${paseo ?? "default"}: W ${state?.windows?.version ?? "?"}, L ${state?.wsl?.version ?? "?"}`);
+console.log(`\nPaseo ${paseo ?? "default"}: hub ${state?.hub?.version ?? "?"}, W ${state?.windows?.version ?? "?"}, L ${state?.wsl?.version ?? "?"}`);
 if (rows) {
   console.log(`${pad("check", 24)}${pad("passed", 8)}${pad("failed", 8)}result`);
   for (const [name, row] of rows) {
@@ -132,10 +129,10 @@ if (rows) {
     for (const f of row.failed) console.log(`\nFAILED ${f.name}\n${redact(f.message.trim().split("\n").slice(0, 8).join("\n"))}`);
   }
 }
-console.log(`${pad("hub unchanged", 24)}${hubOk ? "PASS" : "FAIL"}`);
+console.log(`${pad("user's daemon", 24)}${ownerNote}`);
 console.log(`${pad("testenv removed", 24)}${gone ? "PASS" : "FAIL"}`);
 if (failureNote) console.log(`\n${failureNote.trim()}`);
 
-const ok = testsOk && hubOk && gone && !interrupted && !failureNote;
+const ok = testsOk && gone && !interrupted && !failureNote;
 console.log(`\nmatrix ${ok ? "PASSED" : "FAILED"}`);
 process.exit(ok ? 0 : 1);

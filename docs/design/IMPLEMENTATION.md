@@ -16,7 +16,7 @@ Each tier is documented in `OVERVIEW.md` with the exact file/API it touches.
 4. Apply order: `pluginsEnabled` and `relay` first when enabling, last when disabling (disabling `pluginsEnabled` takes the companion down; `relay` off comes after it, last of all, because it can drop the hub's link). Both switch-offs, and removing or disabling this plugin on a remote, need a lockout confirmation (`lockout_confirmation_required`); removing or disabling it on the hub is refused (`self_target`). A patch whose re-read fails is reported ok but `unverified`.
 5. No rows beyond `docs/design/ROWS.md` in v1. `agents.idleRuntimeCleanup` is the `idle` row, live from Paseo 0.14.0; a host without the `idleRuntimeCleanupSetting` flag shows "needs newer Paseo".
 6. Plugin update and remote enable/disable are untested so far; cover them in integration tests.
-7. 0.13.0 daemon: tested in WP9. `npm run matrix -- --paseo 0.13.0` (W and L on 0.13.0, hub on 0.13.2) passes every check, so the minimum stays 0.13.0. The tested target is 0.14.0 (`--paseo 0.14.0`, same checks plus the `idle` row written, verified and restored on W and L); the version window is 0.13.0 to 0.14.0. A 0.13.0 *hub* (the broker) is not covered: the hub is the user's own daemon, not part of the throwaway env.
+7. 0.13.0 daemon: tested in WP9. `npm run matrix -- --paseo 0.13.0` (W and L on 0.13.0, hub on 0.13.2) passes every check, so the minimum stays 0.13.0. The tested target is 0.14.0 (`--paseo 0.14.0`, same checks plus the `idle` row written, verified and restored on W and L); the version window is 0.13.0 to 0.14.0. A 0.13.0 *hub* (the broker) is not covered: the testenv hub runs on the desktop app's CLI, the version a user's hub has.
 8. Mask secrets by key name (`token|key|secret|password|...`) and by value pattern (`^(sk-|ghp_|xox|AKIA)` etc.).
 9. Refresh overview batched per host, not per cell (relay round trips ~0.2-1.2 s).
 
@@ -24,7 +24,7 @@ Each tier is documented in `OVERVIEW.md` with the exact file/API it touches.
 Single npm package `paseo-multi-host-manager`:
 `paseo-plugin.json`, `OVERVIEW.md`, `index.server.ts`, `index.client.tsx`, `server/{broker,companion,rows,rpc}/`, `client/{grid,drawer,editor,hooks}/`, `shared/{contracts,rows,errors,mask}.ts`, `test/{unit,integration}/`, `testenv/` (dev only, excluded from `files`), `docs/design/`.
 Dependencies: `@getpaseo/client` exact version, `npm-shrinkwrap.json` listed in `files`.
-Tests: vitest unit tests (fake DaemonClient, temp dirs cleaned in `afterEach`); integration tests run with `MHM_TESTENV=1` between `testenv/up.mjs` and `testenv/down.mjs`.
+Tests: vitest unit tests (fake DaemonClient, temp dirs cleaned in `afterEach`); integration tests run with `MHM_TESTENV=1` between `testenv/up.mjs` and `testenv/down.mjs`, one file at a time. The testenv brings its own hub (desktop CLI, 127.0.0.1:6770, home in `.testenv/`); the user's daemon is never the hub and is only read for the matrix's before/after note.
 
 ## Work packages
 | WP | Goal | Deps | Done when |

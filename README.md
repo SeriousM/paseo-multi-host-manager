@@ -183,10 +183,12 @@ npm test
 npm run pack:check     # npm tarball contents: runtime files in, testenv/docs/.local out
 ```
 
-The integration tests need real daemons. `testenv/` starts two throwaway ones (Windows on port 6768,
-Debian under WSL on 6769), saves them on the hub next to a wrong-password entry, and installs the
-packed plugin on all three. It expects the Paseo desktop app, a hub on 127.0.0.1:6767 and WSL, so it
-is local only (`npm ci` in `testenv/` first).
+The integration tests need real daemons. `testenv/` starts three throwaway ones: its own hub
+(Windows, port 6770, home in `.testenv/`), W (Windows, 6768) and L (Debian under WSL, 6769). It
+saves W and L on that hub next to a wrong-password entry and installs the packed plugin on all
+three. Your own daemon is not used as the hub and nothing is written to it, so its saved hosts and
+plugins stay as they are. It expects the Paseo desktop app (its CLI runs the hub and, by default,
+W) and WSL, so it is local only (`npm ci` in `testenv/` first).
 
 ```sh
 node testenv/up.mjs
@@ -194,9 +196,11 @@ npm run test:integration
 node testenv/down.mjs
 ```
 
-`npm run matrix [-- --paseo <version|beta>]` does all three, always tears down, checks the hub is
-left as it was, and prints a pass/fail table. I run it against the minimum, the tested version and
-the `beta` dist-tag before a release.
+`npm run matrix [-- --paseo <version|beta>]` does all three, always tears down, and prints a
+pass/fail table. It also reads your own daemon's saved hosts and plugins before and after (read
+only) and notes whether they changed. I run it against the minimum, the tested version and the
+`beta` dist-tag before a release. `node testenv/up.mjs --demo` builds the setup for the listing
+screenshots instead, with neutral host names.
 
 To test an install the way the registry does it, `npm pack` and install the tarball on a hub. A
 directory install resolves modules from parent `node_modules` folders and can pass by accident.

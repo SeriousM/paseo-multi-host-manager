@@ -7,7 +7,7 @@ import { applyPollRpc, applyStartRpc, gridLoadRpc, docReadRpc } from "../../shar
 import type { ApplyItem, ApplyResult, GridHostData } from "../../shared/contracts";
 import { patchConfigVerified } from "../../server/broker/config-patch";
 import type { DaemonClient } from "../../server/broker/daemon-client";
-import { connectDirectW, connectHub, enabled, hostFiles, hubHome, PLUGIN_ID, readSecrets, readState, relayPairing, routeTo, setConsent } from "./env";
+import { connectDirectW, connectHub, enabled, hostFiles, HUB_HOME, PLUGIN_ID, readSecrets, readState, relayPairing, routeTo, setConsent } from "./env";
 
 const policy = { allowPrerelease: false, insecureLinkRegistrationIds: [] };
 const KEEP_AWAKE = "hichamboushaba/keep-awake";
@@ -94,7 +94,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       const raw = await hub.invokePluginRpc(PLUGIN_ID, gridLoadRpc.name, policy);
       const secrets = readSecrets();
       const pairing = relayPairing();
-      const credential = fs.readFileSync(path.join(hubHome(), "local-credential"), "utf8").trim();
+      const credential = fs.readFileSync(path.join(HUB_HOME, "local-credential"), "utf8").trim();
       const needles = [secrets.windows, secrets.wsl, "wrong-password", pairing.endpoint, pairing.key, credential, "relay://", ".testenv", "mhm-testenv"];
       const text = JSON.stringify(raw);
       for (const needle of needles) {

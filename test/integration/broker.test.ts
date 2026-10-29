@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hostsOverviewRpc } from "../../shared/contracts";
 import type { DaemonClient } from "../../server/broker/daemon-client";
-import { connectHub, enabled, PLUGIN_ID, readSecrets, readState, relayPairing, hubHome } from "./env";
+import { connectHub, enabled, PLUGIN_ID, readSecrets, readState, relayPairing, HUB_HOME } from "./env";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -49,7 +49,7 @@ describe.skipIf(!enabled)("broker through the hub plugin", () => {
   it("leaks no connection string, password, relay endpoint or credential", () => {
     const secrets = readSecrets();
     const pairing = relayPairing();
-    const credential = fs.readFileSync(path.join(hubHome(), "local-credential"), "utf8").trim();
+    const credential = fs.readFileSync(path.join(HUB_HOME, "local-credential"), "utf8").trim();
     const needles = [secrets.windows, secrets.wsl, "wrong-password", pairing.endpoint, pairing.key, credential, "password=", "relay://"];
     for (const needle of needles) expect(needle.length, "needle must not be empty").toBeGreaterThan(5);
     const serialized = JSON.stringify(raw);

@@ -1,4 +1,4 @@
-// Installs the packed plugin like a registry install (npm pack, extract, npm ci --omit=dev) on the hub, W and L, and removes it from the hub.
+// Installs the packed plugin like a registry install (npm pack, extract, npm ci --omit=dev) on the testenv hub, W and L.
 import fs from "node:fs";
 import path from "node:path";
 import { envDir, hubClient, root, run, sleep, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
@@ -47,34 +47,19 @@ export async function waitRunning(list) {
   throw new Error("plugin did not reach running");
 }
 
-
-/** Idempotent: refuses to touch a hub that already has a plugin with this id and does not belong to us (state.hubPlugin). */
-export async function installPlugin(state, save) {
+/** Installs the packed plugin on the testenv hub, W and L; all three are throwaway daemons, removed with .testenv. */
+export async function installPlugin() {
   const hub = await hubClient();
   try {
-    if ((await hub.listPlugins()).some((p) => p.id === PLUGIN_ID)) throw new Error(`hub already has plugin ${PLUGIN_ID}; refusing to touch it`);
     const tarball = packTarball();
     installWindowsPackage(tarball);
     installLinuxPackage(tarball);
-    state.hubPlugin = PLUGIN_ID;
-    save();
     await hub.installDirectoryPlugin(hubPluginDir);
     must(winPaseo("plugin", "add", winPluginDir, "--home", winHome), "install on W");
     must(wsl(`${wslPaseo} plugin add ${wslPluginDir} --home ${wslHome}`), "install on L");
     await waitRunning(() => hub.listPlugins());
     await waitRunning(async () => JSON.parse(must(winPaseo("plugin", "ls", "--json", "--home", winHome), "ls W")));
     await waitRunning(async () => JSON.parse(must(wsl(`${wslPaseo} plugin ls --json --home ${wslHome}`), "ls L")));
-  } finally {
-    await hub.close();
-  }
-}
-
-/** Removes the plugin from the hub, only when state says this harness installed it. */
-export async function removeHubPlugin(state) {
-  if (state?.hubPlugin !== PLUGIN_ID) return;
-  const hub = await hubClient();
-  try {
-    if ((await hub.listPlugins()).some((p) => p.id === PLUGIN_ID)) await hub.removePlugin(PLUGIN_ID);
   } finally {
     await hub.close();
   }

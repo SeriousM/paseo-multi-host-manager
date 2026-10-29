@@ -1,23 +1,12 @@
 import { randomBytes } from "node:crypto";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { gridLoadRpc, hostAddRpc } from "../../shared/contracts";
 import type { DaemonClient } from "../../server/broker/daemon-client";
 import { connectHub, enabled, PLUGIN_ID } from "./env";
 
-// Nothing listens on this port: the saved host stays offline, so it cannot clash with W or L in the parallel suites.
+// Nothing listens on this port: the saved host stays offline, so it cannot clash with W or L on the testenv hub.
 const PORT = 6799;
 const LABEL = "mhm-test-added";
-const statePath = path.resolve(__dirname, "../../.testenv/state.json");
-
-/** Records the registration in the testenv state first, so `down.mjs` removes it even if this test dies half-way. */
-function track(registrationId: string, add: boolean): void {
-  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-  state.hubHosts = state.hubHosts.filter((host: { registrationId: string }) => host.registrationId !== registrationId);
-  if (add) state.hubHosts.push({ key: "added", label: LABEL, registrationId, serverId: null });
-  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
-}
 
 describe.skipIf(!enabled)("add host through the hub plugin", () => {
   let hub: DaemonClient;
@@ -43,11 +32,10 @@ describe.skipIf(!enabled)("add host through the hub plugin", () => {
     expect(await savedCount()).toBe(before);
   });
 
-  it("saves a host, shows it in grid.load, and the harness removes it again", { timeout: 60_000 }, async () => {
+  it("saves a host, shows it in grid.load, and removes it again", { timeout: 60_000 }, async () => {
     const result = await add({ connection: `tcp://127.0.0.1:${PORT}?password=${password}`, label: LABEL });
     if (!result.ok) throw new Error(`add failed: ${result.error.code}`);
     const { registrationId } = result.host;
-    track(registrationId, true);
     try {
       expect(result.host).toMatchObject({ label: LABEL, link: "loopback", serverId: null });
       expect(result.host.status).not.toBe("online");
@@ -59,7 +47,6 @@ describe.skipIf(!enabled)("add host through the hub plugin", () => {
       expect(JSON.stringify(grid)).not.toContain(password);
     } finally {
       await hub.removeHost(registrationId);
-      track(registrationId, false);
     }
     expect((await hub.listHosts()).hosts.some((host) => host.registrationId === registrationId)).toBe(false);
   });

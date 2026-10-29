@@ -7,21 +7,17 @@
 // repository of the checkout the way `paseo plugin add git:...` installs it, so its row shows a commit instead of "dir".
 // A few public plugins, settings and a settings document with a secret make the grid differ. `node testenv/down.mjs`
 // removes all of it.
-import { createHostClient } from "@getpaseo/client/node";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { pathToFileURL } from "node:url";
-import { envDir, root, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { envDir, HUB_PORT, hubClient, hubConfig, hubHome, root, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 import { PLUGIN_ID, waitRunning } from "./plugin.mjs";
 
 const NODE_VERSION = "22.19.0";
 const WINDOWS_VERSION = "0.14.0";
 const LINUX_VERSION = "0.13.2";
-export const DEMO_HUB_PORT = 6770;
-const hubHome = path.join(envDir, "home-hub");
 const preload = path.join(path.dirname(fileURLToPath(import.meta.url)), "demo-hostname.cjs");
 
 const must = (r, what) => {
@@ -43,15 +39,6 @@ const withPassword = (uri, password) => {
   url.searchParams.set("password", password);
   return url.toString();
 };
-
-export function demoHubClient() {
-  const client = createHostClient(`127.0.0.1:${DEMO_HUB_PORT}`, {
-    clientId: "mhm-testenv-demo",
-    reconnect: { enabled: false },
-    localCredential: () => fs.readFileSync(path.join(hubHome, "local-credential"), "utf8").trim(),
-  });
-  return client.connect().then(() => client);
-}
 
 /** A bare repository whose main branch holds the checkout's tracked files as they are now, uncommitted edits included. */
 function publishCheckout() {
@@ -80,7 +67,8 @@ export async function demoUp() {
   fs.mkdirSync(hubHome, { recursive: true });
   const state = {
     paseo: "demo",
-    demo: { hubHome, hubPort: DEMO_HUB_PORT },
+    demo: {},
+    hub: { port: HUB_PORT, home: hubHome, exe: winCliExe },
     hubHosts: [],
     windows: { port: 6768, home: winHome, exe: winCliExe },
     wsl: { distro: "Debian", port: 6769, home: wslHome },
@@ -95,7 +83,7 @@ export async function demoUp() {
   fs.mkdirSync(winCliDir, { recursive: true });
   must(run("cmd", ["/c", "npm", "install", "--prefix", winCliDir, "--no-audit", "--no-fund", "--ignore-scripts", `@getpaseo/cli@${WINDOWS_VERSION}`]), "install the Windows CLI");
 
-  fs.writeFileSync(path.join(hubHome, "config.json"), config(DEMO_HUB_PORT, null, false));
+  fs.writeFileSync(path.join(hubHome, "config.json"), hubConfig());
   must(windowsPaseo("workstation", "daemon", "start", "--home", hubHome), "start hub");
   fs.writeFileSync(path.join(winHome, "config.json"), config(6768, secrets.windows, true));
   must(windowsPaseo("laptop", "daemon", "start", "--home", winHome), "start laptop");
@@ -108,7 +96,7 @@ export async function demoUp() {
   must(wsl(`${linuxEnv} ${wslPaseo} daemon start --home ${wslHome}`), "start build-linux");
   const linux = pairUri(must(wsl(`${wslPaseo} daemon pair --home ${wslHome} --relay --json`), "pair build-linux"));
 
-  const hub = await demoHubClient();
+  const hub = await hubClient();
   try {
     for (const [label, connection] of [
       ["laptop", withPassword(laptop, secrets.windows)],
@@ -163,10 +151,5 @@ export async function demoUp() {
   } finally {
     await hub.close();
   }
-  console.log(`demo up: hub workstation on 127.0.0.1:${DEMO_HUB_PORT} (no password), hosts laptop, build-linux, old-server.`);
-}
-
-/** Stops the demo hub; its home is under .testenv and goes with it. */
-export function demoDown(state) {
-  if (state?.demo?.hubHome && fs.existsSync(state.demo.hubHome) && fs.existsSync(winCliExe)) windowsPaseo("workstation", "daemon", "stop", "--home", state.demo.hubHome, "--force");
+  console.log(`demo up: hub workstation on 127.0.0.1:${HUB_PORT} (no password), hosts laptop, build-linux, old-server.`);
 }

@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { connectOriginClient, connectRoutedClient } from "../../server/broker/daemon-client";
 import type { DaemonClient, RoutedClient } from "../../server/broker/daemon-client";
-import { paseoHome, readHubAddress, readLocalCredential } from "../../server/broker/origin";
+import { readHubAddress, readLocalCredential } from "../../server/broker/origin";
 
 export const PLUGIN_ID = "paseo-multi-host-manager";
 export const enabled = process.env.MHM_TESTENV === "1";
@@ -11,6 +11,8 @@ export const enabled = process.env.MHM_TESTENV === "1";
 const root = path.resolve(__dirname, "../..");
 const envDir = path.join(root, ".testenv");
 const WSL_HOME = "~/mhm-testenv/home";
+/** Home of the testenv's own hub daemon (testenv/up.mjs); the user's daemon is never part of the suite. */
+export const HUB_HOME = path.join(envDir, "home-hub");
 
 interface State {
   hubHosts: { key: string; label: string; serverId: string | null; registrationId: string }[];
@@ -39,15 +41,10 @@ export function relayPairing(): { endpoint: string; key: string } {
   return { endpoint: uri.host, key: uri.searchParams.get("key") ?? "" };
 }
 
-export function hubHome(): string {
-  return paseoHome();
-}
-
 export async function connectHub(): Promise<DaemonClient> {
-  const home = hubHome();
-  const address = readHubAddress(home);
-  if (!address) throw new Error("hub paseo.pid not found");
-  return connectOriginClient(address.listen, () => readLocalCredential(home));
+  const address = readHubAddress(HUB_HOME);
+  if (!address) throw new Error("testenv hub paseo.pid not found");
+  return connectOriginClient(address.listen, () => readLocalCredential(HUB_HOME));
 }
 
 export function routeTo(hub: DaemonClient, key: "W" | "L"): Promise<RoutedClient> {

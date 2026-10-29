@@ -1,26 +1,10 @@
-// Removes only the hub hosts recorded in state.json, stops both daemons (and the demo hub), deletes the homes and .testenv. Idempotent.
+// Stops the testenv's hub, W and L, and deletes their homes and .testenv. Idempotent. Never contacts the user's own
+// daemon: the hosts and plugins the testenv saved live in its own hub's home, which goes with .testenv.
 import fs from "node:fs";
-import { demoDown } from "./demo.mjs";
-import { removeHubPlugin } from "./plugin.mjs";
-import { run, envDir, hubClient, readJson, statePath, winDir, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
+import { desktopExe, envDir, hubHome, readJson, run, statePath, winDir, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 
 const state = readJson(statePath);
-if (state?.hubHosts?.length) {
-  try {
-    const hub = await hubClient();
-    const listed = new Set((await hub.listHosts()).hosts.map((h) => h.registrationId));
-    for (const h of state.hubHosts) if (listed.has(h.registrationId)) await hub.removeHost(h.registrationId);
-    await hub.close();
-  } catch (e) {
-    console.error("hub cleanup failed:", String(e).slice(0, 200));
-  }
-}
-try {
-  await removeHubPlugin(state);
-} catch (e) {
-  console.error("hub plugin removal failed:", String(e).slice(0, 200));
-}
-demoDown(state);
+if (fs.existsSync(hubHome)) run("cmd", ["/c", state?.hub?.exe ?? desktopExe, "daemon", "stop", "--home", hubHome, "--force"]);
 if (fs.existsSync(winHome)) winPaseo("daemon", "stop", "--home", winHome, "--force");
 wsl(`if [ -x ${wslDir}/tools/cli/node_modules/.bin/paseo ] && [ -d ${wslHome} ]; then ${wslPaseo} daemon stop --home ${wslHome} --force; fi; rm -rf ${wslDir}`);
 // The daemon starts a speech-model download whose tar.exe can outlive it and lock the home; kill anything still referencing it.
