@@ -88,10 +88,13 @@ export type DialogRequest =
 
 export type ViewMode = "auto" | "grid" | "compact";
 
+/** What the action bar acts on: a cell, or a host (its header was tapped). */
+export type Selection = CellRef | { kind: "host"; hostId: string };
+
 export interface MhmState {
   /** Hub first, then the hub's saved hosts in directory order. */
   hosts: GridHost[];
-  selection: CellRef | null;
+  selection: Selection | null;
   clipboard: ClipboardEntry | null;
   /** Hosts picked in the clipboard bar for "paste to several hosts". */
   pasteTargets: string[];
@@ -103,4 +106,8 @@ export interface MhmState {
   view: ViewMode;
   /** Compact view: host that receives (`into`) and host that is pulled from. */
   compare: { into: string | null; from: string | null };
+  /** Host every other host is compared with, by reference (registration id, or the hub's id); null for none. */
+  baseline: string | null;
+  /** Hide rows where every comparable host equals the baseline. */
+  onlyDifferences: boolean;
 }

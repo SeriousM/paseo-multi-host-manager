@@ -29,6 +29,8 @@ export function toneStyle(theme: PluginTheme, tone: CellTone): { backgroundColor
   switch (tone) {
     case "source":
       return { backgroundColor: tint(colors.accent, 0.22), borderColor: colors.accent, borderStyle: "solid" };
+    case "baseline":
+      return { backgroundColor: tint(colors.accent, 0.14), borderColor: tint(colors.accent, 0.6), borderStyle: "solid" };
     case "differs":
       return { backgroundColor: tint(colors.accent, 0.07), borderColor: colors.accent, borderStyle: "dashed" };
     case "staged":

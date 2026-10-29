@@ -6,7 +6,8 @@ import { ROW_BY_ID, ROWS } from "../../shared/rows";
 import type { RowDef } from "../../shared/rows";
 import { failureText } from "./failure-text";
 import { itemOnHost } from "./staging";
-import type { CellRef, ClipboardEntry, GridHost, MhmState, StagedItem } from "./types";
+import type { CompareView } from "./compare";
+import type { CellRef, ClipboardEntry, GridHost, MhmState, Selection, StagedItem } from "./types";
 
 /** Oldest Paseo the hub serves (server/broker/capabilities.ts MINIMUM_VERSION). */
 export const MINIMUM_PASEO = "0.13.0";
@@ -139,7 +140,8 @@ const ROW_STATE_REASONS: Record<string, string> = {
 };
 
 /** `attention`: nothing staged, but something the user should follow up (a written settings document of unknown validity). */
-export type CellTone = "plain" | "source" | "differs" | "staged" | "applying" | "applied" | "failed" | "attention";
+/** `baseline`: the cell is on the baseline host (client/state/compare.ts). */
+export type CellTone = "plain" | "source" | "baseline" | "differs" | "staged" | "applying" | "applied" | "failed" | "attention";
 
 export interface CellView {
   ref: CellRef;
@@ -159,9 +161,11 @@ export interface CellView {
   /** Copy is offered: reachable host, a value, and a row that can be written somewhere. */
   copyable: boolean;
   tone: CellTone;
+  /** How the cell compares with the baseline host; set by compare.ts `withCompare`, absent without a baseline. */
+  compare?: CompareView | null;
 }
 
-function sameRef(a: CellRef | null, b: CellRef): boolean {
+function sameRef(a: Selection | null, b: CellRef): boolean {
   return a !== null && JSON.stringify(a) === JSON.stringify(b);
 }
 

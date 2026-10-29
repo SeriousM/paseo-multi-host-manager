@@ -1,12 +1,15 @@
 import type { ApplyResult } from "../../shared/contracts";
 import { clipFromCell, pasteTargetsInputs, planPaste } from "./clipboard";
 import { orderHosts } from "./grid-model";
-import { confirmItems, itemOnHost, markApplying, stageItems, withApplyError, withResults, withUpdateChecks, withWrittenDocs } from "./staging";
-import type { CellRef, ClipboardEntry, Confirmation, DialogRequest, GridHost, MhmState, StageInput, ViewMode } from "./types";
+import { confirmItems, hostRef, itemOnHost, markApplying, stageItems, withApplyError, withResults, withUpdateChecks, withWrittenDocs } from "./staging";
+import type { CellRef, ClipboardEntry, Confirmation, DialogRequest, GridHost, MhmState, Selection, StageInput, ViewMode } from "./types";
 
 export type MhmAction =
   | { type: "gridLoaded"; hosts: GridHost[] }
-  | { type: "select"; ref: CellRef | null }
+  | { type: "select"; ref: Selection | null }
+  /** Compares every other host with this one (null clears it); the compact view pulls from it. */
+  | { type: "setBaseline"; hostId: string | null }
+  | { type: "setOnlyDifferences"; on: boolean }
   /** Copies a row or plugin cell; does nothing for a cell without a copyable value. */
   | { type: "copy"; ref: CellRef }
   /** Copies a settings document with the values `mhm.doc.read` returned. */
@@ -50,6 +53,8 @@ export const INITIAL_STATE: MhmState = {
   dialog: null,
   view: "auto",
   compare: { into: null, from: null },
+  baseline: null,
+  onlyDifferences: false,
 };
 
 /** The queue is frozen while an apply runs: results are merged by item id, a changed item must not get an old result. */
@@ -76,10 +81,21 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
         clipboard: state.clipboard && sourceHost ? { ...state.clipboard, sourceHost } : null,
         pasteTargets: state.pasteTargets.flatMap((hostId) => current(hostId) ?? []),
         compare: { into, from },
+        baseline: hosts.some((host) => state.baseline !== null && itemOnHost(state.baseline, host)) ? state.baseline : null,
       };
     }
     case "select":
       return { ...state, selection: action.ref };
+    case "setBaseline": {
+      const host = action.hostId === null ? undefined : state.hosts.find((candidate) => candidate.id === action.hostId);
+      if (!host) return { ...state, baseline: null, onlyDifferences: false };
+      // A blocked host has nothing to compare with.
+      if (!host.result.ok) return state;
+      const into = state.compare.into === host.id ? (state.hosts.find((candidate) => candidate.id !== host.id)?.id ?? null) : state.compare.into;
+      return { ...state, baseline: hostRef(host), compare: { into, from: host.id } };
+    }
+    case "setOnlyDifferences":
+      return { ...state, onlyDifferences: action.on && state.baseline !== null };
     case "copy": {
       const entry = clipFromCell(state, action.ref);
       return entry ? { ...state, clipboard: entry, pasteTargets: [] } : state;
