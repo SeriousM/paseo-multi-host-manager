@@ -1,7 +1,14 @@
 {
   "id": "paseo-multi-host-manager",
   "name": "Multi-Host Manager",
-  "media": [],
+  "description": "Shows the settings and plugins of all your saved Paseo hosts in one grid and copies them between hosts",
+  "media": [
+    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-grid.png",
+    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-baseline.png",
+    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-apply.png",
+    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-editor.png",
+    "https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-compact.png"
+  ],
   "requirements": {
     "paseo": ">=0.13.0"
   }
