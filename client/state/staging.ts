@@ -83,13 +83,19 @@ export function confirmItems(staged: readonly StagedItem[], ids: readonly string
   );
 }
 
+/**
+ * Statuses Apply sends: not applied yet, or failed and skipped (Retry). An `ignored` item would be ignored again and an
+ * `unknown` one may have been applied: both wait for a reload, or for the user to remove them.
+ */
+export const SENDABLE: readonly StagedStatus[] = ["pending", "failed", "skipped"];
+
 const CONFIRMATION_ORDER: readonly Confirmation[] = ["lockout", "destructive", "trust"];
 
 /** The dialog Apply has to show first, or null when every outstanding item has its confirmations. Lockout comes first. */
 export function nextConfirmation(staged: readonly StagedItem[]): DialogRequest | null {
   for (const kind of CONFIRMATION_ORDER) {
     const itemIds = staged
-      .filter((entry) => entry.status !== "ok" && entry.requires.includes(kind) && !entry.confirmed.includes(kind))
+      .filter((entry) => SENDABLE.includes(entry.status) && entry.requires.includes(kind) && !entry.confirmed.includes(kind))
       .map((entry) => entry.item.id);
     if (itemIds.length > 0) return { kind, itemIds };
   }
@@ -97,11 +103,11 @@ export function nextConfirmation(staged: readonly StagedItem[]): DialogRequest |
 }
 
 /**
- * Input for `mhm.apply`: the outstanding items in staged order (the server orders within a host). `confirmed` is set
+ * Input for `mhm.apply`: the sendable items in staged order (the server orders within a host). `confirmed` is set
  * on items whose confirmations were all given; an item without them is rejected by the server.
  */
 export function applyInput(staged: readonly StagedItem[], policy: BrokerPolicy): BrokerPolicy & { items: ApplyItem[] } {
-  const items = staged.filter((entry) => entry.status !== "ok").map((entry) => {
+  const items = staged.filter((entry) => SENDABLE.includes(entry.status)).map((entry) => {
     const done = entry.requires.length > 0 && entry.requires.every((kind) => entry.confirmed.includes(kind));
     return done ? { ...entry.item, confirmed: true } : entry.item;
   });
@@ -109,7 +115,7 @@ export function applyInput(staged: readonly StagedItem[], policy: BrokerPolicy):
 }
 
 export function markApplying(staged: readonly StagedItem[]): StagedItem[] {
-  return staged.map((entry) => (entry.status === "ok" ? entry : { ...entry, status: "applying" }));
+  return staged.map((entry) => (SENDABLE.includes(entry.status) ? { ...entry, status: "applying" } : entry));
 }
 
 const OUTCOME_STATUS: Record<ApplyResult["outcome"]["status"], StagedStatus> = { ok: "ok", ignored: "ignored", failed: "failed", skipped: "skipped" };

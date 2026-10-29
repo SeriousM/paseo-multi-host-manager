@@ -177,7 +177,7 @@ export interface DrawerSummary {
   failed: number;
   ignored: number;
   unknown: number;
-  /** Items Apply would send. */
+  /** Items Apply would send: pending, failed and skipped. */
   outstanding: number;
   applyLabel: string;
 }
@@ -187,7 +187,8 @@ export function summarize(staged: readonly StagedItem[], applying: boolean): Dra
   const ok = count("ok");
   const pending = count("pending");
   const failed = count("failed", "skipped");
-  const outstanding = staged.length - ok;
+  // What Apply sends (`SENDABLE`): ignored items would be ignored again, unknown ones wait for a reload.
+  const outstanding = pending + failed;
   const applyLabel = applying ? "Applying..." : pending === 0 && failed > 0 ? "Retry failed" : outstanding > 0 ? `Apply (${outstanding})` : "Apply";
   return { total: staged.length, pending, ok, failed, ignored: count("ignored"), unknown: count("unknown"), outstanding, applyLabel };
 }

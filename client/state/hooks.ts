@@ -7,7 +7,7 @@ import type { BrokerPolicy } from "../../shared/contracts";
 import { DEFAULT_POLICY, brokerSettings } from "../../shared/policy";
 import { INITIAL_STATE, mhmReducer } from "./reducer";
 import type { MhmAction } from "./reducer";
-import { applyInput, nextConfirmation } from "./staging";
+import { applyInput, nextConfirmation, SENDABLE } from "./staging";
 import type { Confirmation, MhmState } from "./types";
 
 /** Everything the screen's components get: state, dispatch, and the RPC-backed commands. */
@@ -20,7 +20,7 @@ export interface MhmController {
   grid: { loading: boolean; refreshing: boolean; error: string | null; refresh: () => void };
   /**
    * Apply button: opens the confirmation dialog that is still missing (lockout, destructive, trust), otherwise sends
-   * the outstanding items to `mhm.apply` and reloads the grid afterwards.
+   * the pending, failed and skipped items (`SENDABLE`) to `mhm.apply` and reloads the grid afterwards.
    */
   apply: () => Promise<void>;
   /** Confirmation dialogs call this: marks the items, closes the dialog and continues Apply with the updated queue. */
@@ -58,7 +58,7 @@ export function useMhm(hostId: string): MhmController {
   const refresh = useCallback(() => void refetch(), [refetch]);
 
   const apply = useCallback(async () => {
-    if (state.applying || state.staged.every((entry) => entry.status === "ok")) return;
+    if (state.applying || !state.staged.some((entry) => SENDABLE.includes(entry.status))) return;
     const dialog = nextConfirmation(state.staged);
     if (dialog) {
       dispatch({ type: "openDialog", dialog });
