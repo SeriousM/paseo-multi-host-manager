@@ -237,28 +237,26 @@ export type ApplyOutcome = z.infer<typeof applyOutcomeSchema>;
 export const applyResultSchema = z.object({ id: z.string(), host: z.string(), op: z.string(), outcome: applyOutcomeSchema });
 export type ApplyResult = z.infer<typeof applyResultSchema>;
 
-/** Applies staged items. Results come in the order of `items`. */
-export const applyRpc = defineRpc({
-  name: "mhm.apply",
-  input: brokerPolicySchema.extend({
-    items: z
-      .array(applyItemSchema)
-      .max(500)
-      .refine((items) => new Set(items.map((item) => item.id)).size === items.length, "item ids must be unique"),
-  }),
-  output: z.object({ results: z.array(applyResultSchema) }),
+/** Input of an apply job: the policy and the staged items. Results come back in the order of `items`. */
+export const applyInputSchema = brokerPolicySchema.extend({
+  items: z
+    .array(applyItemSchema)
+    .max(500)
+    .refine((items) => new Set(items.map((item) => item.id)).size === items.length, "item ids must be unique"),
 });
+export type ApplyInput = z.input<typeof applyInputSchema>;
 
 /**
  * Starts applying staged items on the hub and returns at once. Paseo gives a plugin RPC 30 s on the daemon (60 s in the
- * client), less than one host's install may take, so the UI starts a job and polls it instead of waiting on `mhm.apply`.
- * One job runs at a time; a second start while one runs is refused.
+ * client), less than one host's install may take, so the UI starts a job and polls it. There is no synchronous apply:
+ * one job runs at a time and a second start while one runs is refused (`busy`).
  */
 export const applyStartRpc = defineRpc({
   name: "mhm.apply.start",
-  input: applyRpc.input,
+  input: applyInputSchema,
   output: z.discriminatedUnion("ok", [z.object({ ok: z.literal(true), jobId: z.string() }), z.object({ ok: z.literal(false), reason: z.literal("busy") })]),
 });
+export type ApplyStart = z.infer<typeof applyStartRpc.output>;
 
 /**
  * Progress of an apply job: the items settled so far (in item order) and whether it finished. `unknown`: the hub's
@@ -269,3 +267,4 @@ export const applyPollRpc = defineRpc({
   input: z.object({ jobId: z.string().min(1) }),
   output: z.object({ state: z.enum(["running", "done", "unknown"]), results: z.array(applyResultSchema) }),
 });
+export type ApplyJob = z.infer<typeof applyPollRpc.output>;

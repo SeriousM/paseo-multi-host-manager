@@ -1,5 +1,5 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
-import { applyPollRpc, applyRpc, applyStartRpc, docReadRpc, gridLoadRpc, hostsOverviewRpc, pingRpc } from "./shared/contracts";
+import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc, hostsOverviewRpc, pingRpc } from "./shared/contracts";
 import { paseoHome } from "./server/broker/origin";
 import { connectHubOrigin, OriginSession } from "./server/broker/origin-session";
 import { hostsOverview } from "./server/broker/overview";
@@ -16,8 +16,8 @@ export default function contribute(server: PluginServerContext) {
   server.handle(pingRpc, () => ({ ok: true as const }));
   server.handle(hostsOverviewRpc, async (policy) => ({ hosts: await hostsOverview(origin, home, policy) }));
   server.handle(gridLoadRpc, async (policy) => ({ hosts: await loadGrid(origin, home, policy) }));
-  server.handle(applyRpc, async ({ items, ...policy }) => ({ results: await applyItems(origin, home, policy, items) }));
-  // The UI applies through a job: a plugin RPC has 30 s on the daemon, one host's install can take longer.
+  // The UI applies through a job: a plugin RPC has 30 s on the daemon, one host's install can take longer. There is no
+  // synchronous apply handler, so nothing can bypass the job's one-at-a-time guard.
   const jobs = new ApplyJobs();
   server.handle(applyStartRpc, ({ items, ...policy }) => jobs.start(items, (onSettle) => applyItems(origin, home, policy, items, undefined, onSettle)));
   server.handle(applyPollRpc, ({ jobId }) => jobs.poll(jobId));

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyRpc } from "../../shared/contracts";
+import { applyPollRpc, applyStartRpc } from "../../shared/contracts";
 import type { ApplyItem, ApplyOutcome } from "../../shared/contracts";
 import { connectRoutedClient } from "../../server/broker/daemon-client";
 import type * as DaemonClientModule from "../../server/broker/daemon-client";
@@ -290,7 +290,7 @@ describe("apply confirmation and validation", () => {
   it("requires unique item ids in the contract", () => {
     const item = { host: "h", op: "reloadPlugin", pluginId: "p" };
     const input = { items: [{ id: "a", ...item }, { id: "a", ...item }] };
-    expect(applyRpc.input.safeParse(input).success).toBe(false);
+    expect(applyStartRpc.input.safeParse(input).success).toBe(false);
   });
 });
 
@@ -466,7 +466,7 @@ describe("apply output", () => {
       { id: "1", host: "srv_W", op: "setRow", rowId: "sys", value: "x" },
       { id: "2", host: "srv_L", op: "installPlugin", source: "a/b" },
     ]);
-    expect(applyRpc.output.parse({ results })).toEqual({ results });
+    expect(applyPollRpc.output.parse({ state: "done", results })).toEqual({ state: "done", results });
     const text = JSON.stringify(results);
     for (const secret of Object.values(SECRETS)) expect(text).not.toContain(secret);
   });

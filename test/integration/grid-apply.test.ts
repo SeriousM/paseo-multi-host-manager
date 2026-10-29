@@ -1,8 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { applyRpc, gridLoadRpc, docReadRpc } from "../../shared/contracts";
+import { applyPollRpc, applyStartRpc, gridLoadRpc, docReadRpc } from "../../shared/contracts";
 import type { ApplyItem, ApplyResult, GridHostData } from "../../shared/contracts";
 import { patchConfigVerified } from "../../server/broker/config-patch";
 import type { DaemonClient } from "../../server/broker/daemon-client";
@@ -28,8 +29,18 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
     if (!result?.ok) throw new Error(`host ${host} is not ok: ${JSON.stringify(result)}`);
     return result.value;
   };
-  const apply = async (...items: ApplyItem[]): Promise<ApplyResult[]> =>
-    applyRpc.output.parse(await hub.invokePluginRpc(PLUGIN_ID, applyRpc.name, { ...policy, items })).results;
+  // The UI's path: start a job on the hub and poll it until it is done. The job runs on real daemons, so the poll
+  // interval is real time; there is no clock to fake here.
+  const apply = async (...items: ApplyItem[]): Promise<ApplyResult[]> => {
+    const started = applyStartRpc.output.parse(await hub.invokePluginRpc(PLUGIN_ID, applyStartRpc.name, { ...policy, items }));
+    if (!started.ok) throw new Error("another apply job is running on the hub");
+    for (;;) {
+      await sleep(500);
+      const job = applyPollRpc.output.parse(await hub.invokePluginRpc(PLUGIN_ID, applyPollRpc.name, { jobId: started.jobId }));
+      if (job.state === "done") return job.results;
+      if (job.state === "unknown") throw new Error("the hub lost the apply job");
+    }
+  };
   const waitFor = async <T>(read: () => Promise<T>, done: (value: T) => boolean, attempts = 20): Promise<T> => {
     for (let attempt = 0; ; attempt++) {
       const value = await read();
@@ -350,6 +361,10 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       for (const result of results) expect(result.outcome).toMatchObject({ status: "failed", error: { code: "invalid_item", detail: "self_target" } });
       const hubRow = (await load())[0];
       expect(hubRow.result.ok && hubRow.result.value.plugins.find((plugin) => plugin.id === PLUGIN_ID)).toMatchObject({ enabled: true, status: "running" });
+    });
+
+    it("has no synchronous apply that could bypass the job's one-at-a-time guard", async () => {
+      await expect(hub.invokePluginRpc(PLUGIN_ID, "mhm.apply", { ...policy, items: [] })).rejects.toThrow();
     });
   });
 
