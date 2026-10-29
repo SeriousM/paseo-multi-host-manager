@@ -135,4 +135,19 @@ describe("patchConfigVerified", () => {
     expect(fake.patchDaemonConfig).toHaveBeenCalledWith(patch);
     expect(result).toEqual({ applied: ["mcp.injectIntoAgents", "appendSystemPrompt"], ignored: ["autoArchiveAfterMerge", "unknownKey"] });
   });
+
+  it("throws when the patch fails, but reports unverified when only the re-read fails or hangs", async () => {
+    const failing = fakeClient({ info: null, config: {} as never });
+    failing.patchDaemonConfig.mockRejectedValueOnce(new Error("refused"));
+    await expect(patchConfigVerified(failing.client, { appendSystemPrompt: "x" })).rejects.toThrow("refused");
+
+    const lost = fakeClient({ info: null, config: {} as never });
+    Object.assign(lost.client, { getDaemonConfig: async () => Promise.reject(new Error("connection lost")) });
+    expect(await patchConfigVerified(lost.client, { relay: { enabled: false } })).toEqual({ applied: [], ignored: [], unverified: true });
+
+    const hanging = fakeClient({ info: null, config: {} as never });
+    Object.assign(hanging.client, { getDaemonConfig: () => new Promise<never>(() => undefined) });
+    expect(await patchConfigVerified(hanging.client, { relay: { enabled: false } }, 20)).toEqual({ applied: [], ignored: [], unverified: true });
+    expect(hanging.patchDaemonConfig).toHaveBeenCalledTimes(1);
+  });
 });
