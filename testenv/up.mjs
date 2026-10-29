@@ -1,13 +1,25 @@
 // Creates two throwaway Paseo daemons (Windows :6768, WSL Debian :6769) and saves them on the hub plus a wrong-password entry.
 // `--paseo <version|beta>` runs W and L on that daemon version (npm @getpaseo/cli); the default is the desktop app's CLI on W and 0.13.2 on L.
+// `--demo` builds the listing-screenshot setup instead, with its own throwaway hub (see demo.mjs).
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { demoUp } from "./demo.mjs";
 import { installPlugin } from "./plugin.mjs";
 import { desktopExe, hubClient, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 
 const NODE_VERSION = "22.19.0";
+if (process.argv.includes("--demo")) {
+  try {
+    await demoUp();
+    process.exit(0);
+  } catch (error) {
+    console.error(String(error?.stack ?? error).slice(0, 1500));
+    console.error("demo setup failed; run down.mjs to clean up.");
+    process.exit(1);
+  }
+}
 const flag = process.argv.indexOf("--paseo");
 const requested = flag === -1 ? null : process.argv[flag + 1];
 if (flag !== -1 && !/^(beta|latest|\d+\.\d+\.\d+(-[\w.]+)?)$/.test(requested ?? "")) {

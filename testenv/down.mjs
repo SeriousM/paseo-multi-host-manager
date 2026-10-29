@@ -1,5 +1,6 @@
-// Removes only the hub hosts recorded in state.json, stops both daemons, deletes both homes and .testenv. Idempotent.
+// Removes only the hub hosts recorded in state.json, stops both daemons (and the demo hub), deletes the homes and .testenv. Idempotent.
 import fs from "node:fs";
+import { demoDown } from "./demo.mjs";
 import { removeHubPlugin } from "./plugin.mjs";
 import { run, envDir, hubClient, readJson, statePath, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 
@@ -19,6 +20,7 @@ try {
 } catch (e) {
   console.error("hub plugin removal failed:", String(e).slice(0, 200));
 }
+demoDown(state);
 if (fs.existsSync(winHome)) winPaseo("daemon", "stop", "--home", winHome, "--force");
 wsl(`if [ -x ${wslDir}/tools/cli/node_modules/.bin/paseo ] && [ -d ${wslHome} ]; then ${wslPaseo} daemon stop --home ${wslHome} --force; fi; rm -rf ${wslDir}`);
 // The daemon starts a speech-model download whose tar.exe can outlive it and lock the home; kill anything still referencing it.

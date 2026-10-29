@@ -16,13 +16,13 @@ function must(r, what) {
 
 const toWslPath = (file) => file.replace(/^([A-Za-z]):\\/, (_, d) => `/mnt/${d.toLowerCase()}/`).replaceAll("\\", "/");
 
-function packTarball() {
+export function packTarball() {
   fs.mkdirSync(packDir, { recursive: true });
   const out = must(run("cmd", ["/c", "npm", "pack", "--ignore-scripts", "--json", "--pack-destination", packDir, root]), "npm pack");
   return path.join(packDir, JSON.parse(out)[0].filename);
 }
 
-function installWindowsPackage(tarball) {
+export function installWindowsPackage(tarball) {
   fs.mkdirSync(hubPluginDir, { recursive: true });
   must(run("tar", ["-xzf", path.basename(tarball), "-C", path.relative(packDir, hubPluginDir), "--strip-components=1"], undefined, packDir), "extract package");
   // Not below any node_modules: a directory plugin resolves modules from ancestors, which would hide a missing dependency.
@@ -30,14 +30,14 @@ function installWindowsPackage(tarball) {
   fs.cpSync(hubPluginDir, winPluginDir, { recursive: true });
 }
 
-function installLinuxPackage(tarball) {
+export function installLinuxPackage(tarball) {
   must(
     wsl(`set -e; rm -rf ${wslPluginDir}; mkdir -p ${wslPluginDir}; tar -xzf ${toWslPath(tarball)} -C ${wslPluginDir} --strip-components=1; cd ${wslPluginDir}; PATH=${wslDir}/tools/node/bin:$PATH npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null`),
     "install package (WSL)",
   );
 }
 
-async function waitRunning(list) {
+export async function waitRunning(list) {
   for (let i = 0; i < 40; i++) {
     const plugin = (await list()).find((p) => p.id === PLUGIN_ID);
     if (plugin?.status === "running") return;
