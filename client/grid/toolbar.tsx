@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { baselineHost } from "../state/compare";
 import { MINIMUM_PASEO, TESTED_VERSION } from "../state/grid-model";
 import type { ViewMode } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
@@ -10,6 +11,7 @@ const VIEWS: Record<ViewMode, string> = { auto: "Auto", grid: "Grid", compact: "
 export function Toolbar({ theme, controller }: Pick<MhmSurfaceProps, "theme" | "controller">) {
   const { state, dispatch, policy, grid } = controller;
   const { colors } = theme;
+  const baseline = baselineHost(state);
   const reachable = state.hosts.filter((host) => host.result.ok).length;
   const hub = state.hosts.find((host) => host.isHub);
   return (
@@ -24,6 +26,14 @@ export function Toolbar({ theme, controller }: Pick<MhmSurfaceProps, "theme" | "
       </Text>
       {controller.policyNote ? <Text style={{ color: colors.statusWarning, fontSize: 11 }}>{controller.policyNote}</Text> : null}
       <View style={{ flex: 1 }} />
+      {baseline ? <Text style={{ color: colors.accent, fontSize: 11 }}>Baseline: {baseline.label}</Text> : null}
+      <Button
+        theme={theme}
+        label="Only differences"
+        active={state.onlyDifferences}
+        disabled={!baseline}
+        onPress={() => dispatch({ type: "setOnlyDifferences", on: !state.onlyDifferences })}
+      />
       <Button
         theme={theme}
         label={policy.allowPrerelease ? "Pre-release hosts: allowed" : "Pre-release hosts: blocked"}

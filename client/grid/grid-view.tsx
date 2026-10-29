@@ -1,7 +1,8 @@
 import { ScrollView } from "@getpaseo/plugin/client/ui";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
-import { pluginCellView, pluginRows, rowCellView, SETTINGS_ROWS } from "../state/grid-model";
+import { compareRow, compareRowCell, comparePlugin, comparePluginCell, rowHasDifferences } from "../state/compare";
+import { pluginRows, SETTINGS_ROWS } from "../state/grid-model";
 import type { PluginRow } from "../state/grid-model";
 import type { CellRef } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
@@ -71,7 +72,10 @@ function PluginLabel({ theme, controller, row }: Pick<MhmSurfaceProps, "theme" |
 export function GridView({ theme, controller }: Pick<MhmSurfaceProps, "theme" | "controller">) {
   const { state, dispatch } = controller;
   const { colors } = theme;
-  const plugins = useMemo(() => pluginRows(state.hosts), [state.hosts]);
+  const allPlugins = useMemo(() => pluginRows(state.hosts), [state.hosts]);
+  // "Only differences": rows where every comparable host equals the baseline are hidden, in both columns alike.
+  const settings = state.onlyDifferences ? SETTINGS_ROWS.filter((row) => rowHasDifferences(state, (hostId) => compareRow(state, row.id, hostId))) : SETTINGS_ROWS;
+  const plugins = state.onlyDifferences ? allPlugins.filter((row) => rowHasDifferences(state, (hostId) => comparePlugin(state, row, hostId))) : allPlugins;
   const width = state.hosts.length * SIZES.columnWidth;
   const select = (ref: CellRef) => dispatch({ type: "select", ref });
 
@@ -79,13 +83,13 @@ export function GridView({ theme, controller }: Pick<MhmSurfaceProps, "theme" | 
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexDirection: "row" }}>
       <View style={{ width: SIZES.labelWidth, borderRightWidth: 1, borderColor: colors.border, backgroundColor: colors.surface1 }}>
         <View style={{ height: SIZES.headerHeight, borderBottomWidth: 1, borderColor: colors.border, padding: 9, justifyContent: "flex-end" }}>
-          <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>Tap a cell to copy or paste. Tap a host for its capabilities.</Text>
+          <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>Tap a cell to copy or paste. Tap a host to compare with it (baseline) or for its capabilities.</Text>
         </View>
         <SectionLabel theme={theme} title="HOST SETTINGS" width={SIZES.labelWidth} />
-        {SETTINGS_ROWS.map((row) => (
+        {settings.map((row) => (
           <RowLabel key={row.id} theme={theme} row={row} />
         ))}
-        <SectionLabel theme={theme} title={`PLUGINS (${plugins.length})`} width={SIZES.labelWidth} />
+        <SectionLabel theme={theme} title={plugins.length === allPlugins.length ? `PLUGINS (${plugins.length})` : `PLUGINS (${plugins.length} of ${allPlugins.length})`} width={SIZES.labelWidth} />
         {plugins.map((row) => (
           <PluginLabel key={row.id} theme={theme} controller={controller} row={row} />
         ))}
@@ -98,10 +102,10 @@ export function GridView({ theme, controller }: Pick<MhmSurfaceProps, "theme" | 
             ))}
           </View>
           <SectionLabel theme={theme} title="" width={width} />
-          {SETTINGS_ROWS.map((row) => (
+          {settings.map((row) => (
             <View key={row.id} style={{ flexDirection: "row" }}>
               {state.hosts.map((host) => (
-                <GridCell key={host.id} theme={theme} view={rowCellView(state, row.id, host.id)} width={SIZES.columnWidth} height={SIZES.rowHeight} onSelect={select} />
+                <GridCell key={host.id} theme={theme} view={compareRowCell(state, row.id, host.id)} width={SIZES.columnWidth} height={SIZES.rowHeight} onSelect={select} />
               ))}
             </View>
           ))}
@@ -109,7 +113,7 @@ export function GridView({ theme, controller }: Pick<MhmSurfaceProps, "theme" | 
           {plugins.map((row) => (
             <View key={row.id} style={{ flexDirection: "row" }}>
               {state.hosts.map((host) => (
-                <GridCell key={host.id} theme={theme} view={pluginCellView(state, row, host.id)} width={SIZES.columnWidth} height={SIZES.pluginRowHeight} onSelect={select} />
+                <GridCell key={host.id} theme={theme} view={comparePluginCell(state, row, host.id)} width={SIZES.columnWidth} height={SIZES.pluginRowHeight} onSelect={select} />
               ))}
             </View>
           ))}
