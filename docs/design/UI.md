@@ -56,3 +56,8 @@ target lacks, the contract rule), `access.ts` (`editorAccess`: read-only reasons
 `docStatus`: outcome and conflict text). "Paste from <host>" inside the editor uses the clipboard's document and the target's own read;
 the grid-level paste (`planPaste`) stages the clipboard values as they are, so a masked key the target lacks fails the write there
 (`invalid_input`) unless it goes through `planDocPaste` first.
+
+Notes from 8b:
+- `{ kind: "install", pluginId: "", hostId: null }` opens the install dialog for a new plugin from a typed source (registry id, `npm:`, `git:`); credentials in the URL and local directories are refused with the server's rules.
+- The clipboard bar stages row and plugin pastes with `pasteTargets`. For a settings-document clipboard its chips open the editor on that host instead (the editor reads the target document first, so masked secrets keep the target's own values).
+- The trust dialog has two checkboxes when a source is not pinned ("installs the latest release"); destructive and lockout have one. Pure view logic: `drawer/staging-view.ts`, `dialogs/confirm-text.ts`, `dialogs/plugin-rules.ts`, `dialogs/capability-report.ts`, `clipboard/paste-chips.ts` (tests: `test/unit/client-dialogs.test.ts`).

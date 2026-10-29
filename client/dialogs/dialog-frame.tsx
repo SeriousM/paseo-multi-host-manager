@@ -10,14 +10,14 @@ export interface DialogProps extends MhmSurfaceProps {
 }
 
 /** Modal with a title, a body and a footer row of buttons; the shared frame for the dialogs of 8b and 8c. */
-export function DialogFrame({ theme, title, onClose, children, footer }: Pick<DialogProps, "theme" | "onClose"> & { title: string; children: ReactNode; footer?: ReactNode }) {
+export function DialogFrame({ theme, title, onClose, children, footer, closeLabel = "Close" }: Pick<DialogProps, "theme" | "onClose"> & { title: string; children: ReactNode; footer?: ReactNode; closeLabel?: string }) {
   return (
     <Modal title={title} open onOpenChange={(open) => (open ? undefined : onClose())}>
       <Modal.Content>
         {children}
         <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
           {footer}
-          <Button theme={theme} label="Close" onPress={onClose} />
+          <Button theme={theme} label={closeLabel} onPress={onClose} />
         </View>
       </Modal.Content>
     </Modal>

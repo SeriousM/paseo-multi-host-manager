@@ -35,12 +35,12 @@ function refuse(reason: string, same = false): PastePlan {
   return { ok: false, same, reason };
 }
 
-function hasFeature(host: GridHost, feature: string): boolean {
+export function hasFeature(host: GridHost, feature: string): boolean {
   return host.result.ok && host.result.snapshot.features.includes(feature);
 }
 
 /** `pluginsEnabled` on the host, with a staged change taking precedence. */
-function pluginsOn(state: Pick<MhmState, "staged">, host: GridHost): boolean {
+export function pluginsOn(state: Pick<MhmState, "staged">, host: GridHost): boolean {
   const staged = state.staged.find(({ item }) => item.op === "setRow" && item.rowId === "pen" && itemOnHost(item.host, host));
   if (staged?.item.op === "setRow") return staged.item.value === true;
   return hostData(host)?.rows.pen?.value !== false;
