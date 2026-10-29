@@ -14,7 +14,7 @@ export type MhmAction =
   | { type: "clearClipboard" }
   | { type: "togglePasteTarget"; hostId: string }
   | { type: "setPasteTargets"; hostIds: string[] }
-  /** Pastes the clipboard onto one host (the selected cell's host in the action bar). */
+  /** Pastes a row or plugin clipboard onto one host (the selected cell's host in the action bar). Documents go through the editor. */
   | { type: "paste"; hostId: string }
   /** Pastes the clipboard onto every host in `pasteTargets`, then clears them. */
   | { type: "pasteTargets" }
@@ -89,11 +89,13 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
     case "setPasteTargets":
       return { ...state, pasteTargets: action.hostIds };
     case "paste": {
-      if (!state.clipboard) return state;
+      // A settings document is pasted through the editor, which reads the target first (masked keys, revision).
+      if (!state.clipboard || state.clipboard.kind === "doc") return state;
       const plan = planPaste(state, state.clipboard, action.hostId);
       return plan.ok ? withStaged(state, plan.inputs) : state;
     }
     case "pasteTargets":
+      if (state.clipboard?.kind === "doc") return { ...state, pasteTargets: [] };
       return { ...withStaged(state, pasteTargetsInputs(state)), pasteTargets: [] };
     case "stage":
       return withStaged(state, action.inputs);

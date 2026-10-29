@@ -19,8 +19,10 @@ export function ActionBar({ theme, controller }: Pick<MhmSurfaceProps, "theme" |
   const view = ref.kind === "row" ? rowCellView(state, ref.rowId, ref.hostId) : row ? pluginCellView(state, row, ref.hostId) : null;
   if (!view || !host) return null;
   const title = `${ref.kind === "row" ? (ROW_BY_ID[ref.rowId]?.label ?? ref.rowId) : ref.pluginId} on ${host.label}`;
-  const paste = state.clipboard ? planPaste(state, state.clipboard, ref.hostId) : null;
-  const sameCell = state.clipboard && (state.clipboard.kind === ref.kind || (state.clipboard.kind === "doc" && ref.kind === "plugin"));
+  const clip = state.clipboard;
+  // Paste goes to the clipboard's own row or plugin only; a settings document belongs to its plugin's cell.
+  const sameCell = clip !== null && (clip.kind === "row" ? ref.kind === "row" && clip.rowId === ref.rowId : ref.kind === "plugin" && clip.pluginId === ref.pluginId);
+  const paste = clip && sameCell ? planPaste(state, clip, ref.hostId) : null;
   const installed = ref.kind === "plugin" && hostData(host)?.plugins.some((plugin) => plugin.id === ref.pluginId);
   const staged = view.staged;
 
@@ -36,7 +38,15 @@ export function ActionBar({ theme, controller }: Pick<MhmSurfaceProps, "theme" |
       </View>
       <View style={{ flex: 1 }} />
       {view.copyable ? <Button theme={theme} label="Copy" onPress={() => dispatch({ type: "copy", ref })} /> : null}
-      {paste?.ok && sameCell ? (
+      {paste?.ok && clip?.kind === "doc" ? (
+        // The editor reads the target's document first, so masked secrets keep the target's own values.
+        <Button
+          theme={theme}
+          variant="primary"
+          label="Paste settings..."
+          onPress={() => dispatch({ type: "openDialog", dialog: { kind: "editor", pluginId: clip.pluginId, settingsId: clip.settingsId, hostId: ref.hostId } })}
+        />
+      ) : paste?.ok ? (
         <Button
           theme={theme}
           variant="primary"
@@ -44,7 +54,7 @@ export function ActionBar({ theme, controller }: Pick<MhmSurfaceProps, "theme" |
           onPress={() => dispatch({ type: "paste", hostId: ref.hostId })}
         />
       ) : null}
-      {paste && !paste.ok && !paste.same && sameCell ? (
+      {paste && !paste.ok && !paste.same ? (
         <Text numberOfLines={2} style={{ color: colors.statusWarning, fontSize: 11, maxWidth: 260 }}>
           {paste.reason}
         </Text>
