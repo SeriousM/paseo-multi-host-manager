@@ -18,9 +18,11 @@ One reducer, `mhmReducer(state, action)` in `reducer.ts`; pure and unit-tested (
 | `writtenDocs` | "Written, validity unknown" markers per host, plugin and document; outlive `clearApplied`, cleared by a successful reload of that plugin or `dismissWritten`. |
 | `baseline`, `onlyDifferences` | Host reference every other host is compared with (`client/state/compare.ts`), and the "Only differences" filter. |
 | `applying`, `applyNote`, `dialog`, `view`, `compare` | Apply running; why the last Apply did not start or lost its result (drawer line, cleared by the next Apply); open dialog; `auto`/`grid`/`compact`; compact view's "into"/"from" hosts. |
+| `focusHost` | Registration id of a host Add host just saved; the first grid load that has it selects its header (`hostAdded`, then `gridLoaded`). |
 
 Controller: `state`, `dispatch`, `policy` + `savePolicy` (broker policy, host-scoped settings doc `broker` on the hub,
-`shared/policy.ts`, `policyNote` when it fell back to defaults), `grid.refresh`, `apply()`, `confirm(kind, ids)`, `copyDoc(host, pluginId, settingsId)`.
+`shared/policy.ts`, `policyNote` when it fell back to defaults), `grid.refresh`, `apply()`, `confirm(kind, ids)`, `copyDoc(host, pluginId, settingsId)`,
+`addHost({ connection, label, allowUnencrypted })`.
 
 Rules baked into the state:
 - Staged items name saved hosts by `registrationId` (the hub by its id); cells match either id. One item per host and
@@ -47,6 +49,27 @@ Rules baked into the state:
   (see above). The grid reloads after every apply. `clearApplied` drops the `ok` items.
 - `planPaste(state, clipboard, hostId)` (clipboard.ts) says what a paste stages or why not; use it for every paste
   affordance (action bar, chips, compact view).
+
+## Add host (client/dialogs/add-host-dialog.tsx)
+The one direct action: `mhm.hosts.add` saves a host in the hub daemon's directory (`addHost`, as `paseo host add`) when
+the user presses Add; it never goes through staging or Apply. Opened from the toolbar ("Add host...") and from the
+hub-only panel. The connection field is a password field (`secureTextEntry`); the text leaves the dialog only in the
+RPC call, and no result or failure carries it back. `add-host-rules.ts` (`addHostView`, tested in
+`test/unit/client-add-host.test.ts`) classifies the text with `shared/connection.ts` (`connectionLink`, the grammar of
+Paseo's `parseHostTarget`; the server checks again with Paseo's parser, and a unit test keeps the two in step). A plain
+non-loopback TCP link shows "I understand this link is not encrypted"; Add stays disabled until it is ticked, and the
+server refuses it without `allowUnencrypted` (`insecure_link` / `unencrypted_link`). After a confirmed plain link the
+controller adds its registration id to the policy's `insecureLinkRegistrationIds`, the same allowance the capabilities
+dialog gives a saved host. On success: `hostAdded`, grid reload, the new column selected. The server waits up to 10 s
+for the hub's first connect, so the returned status is usually `online` or the reason it is not.
+
+## Layout (client/grid/layout.ts, palette.ts)
+Type scale `TYPE` (body 15, secondary 13, monospace values 14, badges 12, headings 16/18) with `font(size)` for a
+1.4 line height. Row and header heights in `SIZES` are fixed so the label column lines up with the host columns.
+`gridLayout(width, hosts, hubOnly)`: host columns share the measured width next to the 290 px label column, each
+between 220 and 420 px; below 220 they keep that width and scroll sideways. A reachable hub without saved hosts
+(`hubOnly`) gets the explanation panel beside its column (and instead of the pickers in the compact view): why only
+the hub shows, the two host lists, "Add host..." and the CLI command.
 
 ## Who owns what
 | Part | File | Owner |

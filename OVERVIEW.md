@@ -6,9 +6,11 @@ onto one host or several, review the staged changes, then apply them.
 
 ![Hosts as columns, settings and plugins as rows](https://raw.githubusercontent.com/SeriousM/paseo-multi-host-manager/main/assets/screenshot-grid.png)
 
-The plugin runs on one host, the hub, which already has your other hosts saved (`paseo host add`).
-The hub's daemon reaches each host over the connection you saved for it, relay and password
-included. The plugin holds no addresses or passwords.
+The plugin runs on one host, the hub. Its columns are the hosts saved in the hub's daemon, not the
+hosts in the Paseo app's own host list: that list belongs to the app, and plugins cannot use it.
+Add hosts to the hub with "Add host..." (paste the host's pairing link) or `paseo host add` on the
+hub. The hub's daemon reaches each host over the connection saved for it, relay and password
+included. The plugin keeps no addresses or passwords.
 
 ## Setup
 
@@ -34,6 +36,7 @@ link, which sends its password unencrypted, is blocked until you allow that host
   The baseline lasts for the session.
 - Edit other plugins' settings documents on any host, with a preview of every key that changes.
 - Use a compact two-host view on narrow screens.
+- Add a host to the hub from its pairing link.
 
 Nothing is written until you press Apply. Hosts are applied one after the other, the hub last.
 Installs ask for a trust confirmation, removals for a destructive one. Turning off the relay or the
@@ -59,6 +62,11 @@ your own Paseo hosts, over the connection you already saved for them.
   This is an internal API and may change between Paseo releases.
 - Installs, updates and removes plugin code on your other hosts, only for items you staged and
   confirmed.
+- Adds hosts to the hub's saved-host list when you use Add host (the daemon's `addHost`, the call
+  `paseo host add` makes). This acts at once, it is not staged. The hub's daemon stores the
+  connection, including any password in it, in `hosts.json` on the hub (Paseo's own behaviour); the
+  plugin passes it on and does not keep, log or return it. A plain TCP link needs an extra
+  confirmation first.
 - Never reads `hosts.json`. Connection strings and targets are never logged beyond a scheme
   classification.
 - Reads `daemon.listen`, `worktrees.root` and `log.console.level` from `config.json` on each host for

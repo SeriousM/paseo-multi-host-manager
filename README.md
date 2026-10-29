@@ -5,9 +5,9 @@ relay setting, an older plugin or a provider entry I had fixed everywhere else. 
 opening each host in turn. So this is a plugin that shows the settings and plugins of every host in
 one grid and copies a value from one host to the others when I tell it to.
 
-It runs on one host, the hub, which already has the other hosts saved. The hub's daemon reaches each
-of them over the connection you saved for it, relay and password included. The plugin holds no
-addresses or passwords.
+It runs on one host, the hub, and shows the hosts saved in the hub's daemon. The hub's daemon
+reaches each of them over the connection saved for it, relay and password included. The plugin keeps
+no addresses or passwords.
 
 Up front: I used AI to write a good part of the code and to help with the docs. The ideas, the
 feature list and the trade-offs are mine. Read the source like any third-party code, especially
@@ -51,6 +51,8 @@ The compact view for narrow screens, two hosts side by side:
 - A capabilities dialog per host: version and whether it is in the tested window, missing features
   and what they block, the link type, and whether the companion is installed.
 - A compact view for phones that compares two hosts row by row.
+- "Add host..." saves a host on the hub from its pairing link, so you do not need a terminal on the
+  hub for it.
 
 ## How it works
 
@@ -58,10 +60,11 @@ The screen talks to the plugin on the hub. The hub's plugin server connects to i
 the same local credential the Paseo CLI uses (`local-credential` and `paseo.pid` in the Paseo home),
 then opens a routed connection to each saved host through that daemon. Relay endpoints, passwords
 and ports stay in the hub's saved host entries; the plugin never reads `hosts.json` and only ever
-shows or logs the kind of link (relay, SSH, loopback, plain TCP). Plain TCP carries a password
-unencrypted, so a host saved that way is blocked until you allow it for that host. Pre-release
-daemons are blocked until you allow them with the toolbar switch, and hosts below 0.13.0 cannot be
-reached through a hub at all.
+shows or logs the kind of link (relay, SSH, loopback, plain TCP). Add host is the one place a
+connection passes through the plugin: from the dialog to the hub's daemon, unlogged, and never sent
+back. Plain TCP carries a password unencrypted, so a host saved that way is blocked until you allow
+it for that host. Pre-release daemons are blocked until you allow them with the toolbar switch, and
+hosts below 0.13.0 cannot be reached through a hub at all.
 
 What it reads and writes, by tier:
 
@@ -72,7 +75,8 @@ What it reads and writes, by tier:
   `config.json` by the companion and shown, never written. The plugin does not write `config.json`.
   Other plugins' settings documents can be read on every host, with secrets masked. The plugin
   installs, updates and removes plugin code on your other hosts, only for items you staged and
-  confirmed.
+  confirmed. It adds hosts to the hub's saved-host list when you use Add host (`addHost`, the call
+  `paseo host add` makes).
 - Tier B, off by default, per target host. With `allowPluginSettingsWrites` switched on in this
   plugin's settings on the target host, the companion there writes other plugins' settings
   documents. It checks the document has not changed since it was read, keeps a `.bak` (restore swaps
@@ -128,6 +132,29 @@ Plugins run trusted and unsandboxed with the daemon user's access to the machine
 This one also connects to your other hosts with the hub's saved credentials. Read the source before
 installing.
 
+### Two host lists
+
+Paseo keeps two separate lists of hosts, and this trips people up. The Paseo app has its own host
+list, the one in its sidebar. Each daemon also has a list of saved hosts, kept in `hosts.json` in its
+Paseo home. The grid shows the hub daemon's list only, because that is the one a plugin can route
+through; the app's list is not available to plugins. A fresh hub has none, so the grid shows the hub
+alone, next to a short explanation.
+
+To add a host, get its pairing link: run `paseo daemon pair --relay` on that host, or use the link you
+paired the app with. Then either press "Add host..." in the toolbar and paste it, or run this on the
+hub:
+
+```sh
+paseo host add '<pairing link>' --label laptop
+```
+
+Keep the quotes: the link contains `&`, which the shell would otherwise take as the end of the
+command (on Windows `cmd` as well). Add host acts at once, it is not staged with the other changes.
+Either way the hub's daemon stores the connection, including any password in it, in `hosts.json` on
+the hub; that is Paseo's own behaviour. The plugin passes the link to the daemon and does not keep,
+log or return it. A plain `tcp://` link to another machine sends its password unencrypted, so the
+dialog asks you to confirm that before it saves one.
+
 The plugin is needed on every host you want to manage, not only on the hub: the companion part reads
 the OS, the restart-only keys and the settings documents there. A host without it shows those rows as
 unavailable, and its capabilities dialog has an "Install companion" button that stages the install
@@ -141,8 +168,8 @@ other hosts yourself.
   0.14.0. Newer stable versions are marked untested, not blocked.
 - The "Release idle agent runtimes" row needs 0.14.0 on the target. Older hosts show "needs newer
   Paseo" for it. Features are detected per host from what the daemon reports.
-- The hub needs the other hosts saved in its daemon (`paseo host add`). The hosts in the app's own
-  host list are a different list and are not used.
+- The hub needs the other hosts saved in its daemon ("Add host..." or `paseo host add`, see "Two host
+  lists" above). The hosts in the app's own host list are a different list and are not used.
 
 ## Development
 
