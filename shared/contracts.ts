@@ -109,7 +109,7 @@ export type GridPlugin = z.infer<typeof gridPluginSchema>;
 
 /** State of our own plugin on a host. `disabled` also covers `pluginsEnabled=false`; it is not a failure. */
 export const companionStateSchema = z.discriminatedUnion("state", [
-  /** Our plugin is not installed; installing it is an `installPlugin` item with source `OWN_INSTALL_SOURCE` (shared/companion-contracts.ts). */
+  /** Our plugin is not installed; installing it is an `installPlugin` item from the hub's own source (client/dialogs/plugin-rules.ts `companionInstall`). */
   z.object({ state: z.literal("missing") }),
   z.object({ state: z.literal("disabled") }),
   z.object({ state: z.literal("failed") }),

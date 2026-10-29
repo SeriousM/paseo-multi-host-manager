@@ -1,14 +1,14 @@
 import { Text, View } from "react-native";
-import { OWN_INSTALL_SOURCE, OWN_PLUGIN_ID } from "../../shared/companion-contracts";
+import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
 import { Badge, Button } from "../grid/primitives";
 import { findHost, hostSummary } from "../state/grid-model";
 import { withInsecureLink } from "../state/policy";
-import { hostRef, itemOnHost } from "../state/staging";
+import { itemOnHost } from "../state/staging";
 import { capabilityReport, LINK_INFO } from "./capability-report";
 import { Checkbox, Note, SectionLabel } from "./controls";
 import { DialogFrame } from "./dialog-frame";
 import type { DialogProps } from "./dialog-frame";
-import { installBlocker } from "./plugin-rules";
+import { companionInstall, installBlocker } from "./plugin-rules";
 
 const COMPANION_TEXT: Record<string, string> = {
   ok: "multi-host-manager is running on this host.",
@@ -32,6 +32,7 @@ export function CapabilitiesDialog({ theme, controller, onClose, hostId }: Dialo
   const companion = summary.companion;
   const installStaged = state.staged.some(({ item }) => item.op === "installPlugin" && item.pluginId === OWN_PLUGIN_ID && itemOnHost(item.host, host));
   const installBlock = companion === "missing" ? installBlocker(state, host, OWN_PLUGIN_ID) : null;
+  const install = companionInstall(state, host);
 
   return (
     <DialogFrame theme={theme} title={`${summary.label} - capabilities`} onClose={onClose}>
@@ -98,14 +99,15 @@ export function CapabilitiesDialog({ theme, controller, onClose, hostId }: Dialo
                 theme={theme}
                 variant="primary"
                 label={installStaged ? "Install staged" : "Install companion"}
-                disabled={installBlock !== null || installStaged}
+                disabled={installBlock !== null || !install.ok || installStaged}
                 onPress={() => {
-                  dispatch({ type: "stage", inputs: [{ op: "installPlugin", host: hostRef(host), source: OWN_INSTALL_SOURCE, pluginId: OWN_PLUGIN_ID }] });
+                  if (!install.ok) return;
+                  dispatch({ type: "stage", inputs: [install.input] });
                   onClose();
                 }}
               />
               <Note theme={theme}>
-                {installBlock ?? `Stages an install from ${OWN_INSTALL_SOURCE}. Nothing happens until you press Apply; the registry cannot pin a version.`}
+                {installBlock ?? (install.ok ? `Stages an install that ${install.note}. Nothing happens until you press Apply.` : install.reason)}
               </Note>
             </>
           ) : null}

@@ -5,7 +5,8 @@ export const OWN_PLUGIN_ID = "paseo-multi-host-manager";
 
 /**
  * Registry install source of this plugin, in the `<owner>/<name>` form `installPluginSource` takes for the default
- * registry (the registry id the owner confirmed; it differs from OWN_PLUGIN_ID). A registry install cannot pin a version.
+ * registry (the registry id the owner confirmed; it differs from OWN_PLUGIN_ID). "Install companion" uses it only when
+ * the hub's own source is unknown (client/dialogs/plugin-rules.ts `companionInstall`). A registry install cannot pin.
  */
 export const OWN_INSTALL_SOURCE = "seriousm/paseo-multi-host-manager";
 

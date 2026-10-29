@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { GridHostData, GridPlugin, HostFailure } from "../../shared/contracts";
-import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
+import { OWN_INSTALL_SOURCE, OWN_PLUGIN_ID } from "../../shared/companion-contracts";
 import { allOthersSelection, pasteChips } from "../../client/clipboard/paste-chips";
 import { capabilityReport } from "../../client/dialogs/capability-report";
 import { lockoutLines, removalLines, trustLines } from "../../client/dialogs/confirm-text";
-import { installBlocker, parseInstallSource, pluginMenuRules, removeBlocker } from "../../client/dialogs/plugin-rules";
+import { companionInstall, installBlocker, parseInstallSource, pluginMenuRules, removeBlocker } from "../../client/dialogs/plugin-rules";
 import { describeItem, groupStaged, installPin, statusView, summarize } from "../../client/drawer/staging-view";
 import { failureText } from "../../client/state/failure-text";
 import { INITIAL_STATE, mhmReducer } from "../../client/state/reducer";
@@ -274,5 +274,24 @@ describe("plugin dialog rules", () => {
     expect(pluginMenuRules(host("a"), OWN_PLUGIN_ID)).toMatchObject({ update: null, manage: null, editor: "no settings document on this host" });
     const withDoc = host("w", { data: data({ companion: { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: true }, settingsDocuments: [{ pluginId: "x", settingsId: "main", revision: "r", hasBackup: false }] } }) });
     expect(pluginMenuRules(withDoc, "x")).toMatchObject({ documents: ["main"], editor: null });
+  });
+
+  it("installs the companion from the hub's own source, falls back to the registry, refuses a directory hub", () => {
+    const withOwn = (source: GridPlugin["source"] | null) => host("hub", { isHub: true, data: data({ plugins: source ? [plugin(OWN_PLUGIN_ID, { source })] : [] }) });
+    const install = (hubHost: GridHost) => companionInstall(run([hubHost, empty]), empty);
+    const git = { kind: "git" as const, installSource: "git:https://github.com/SeriousM/paseo-multi-host-manager", ref: "abc1234def", pinned: true };
+    expect(install(withOwn(git))).toMatchObject({
+      ok: true,
+      input: { op: "installPlugin", host: "reg-e", source: git.installSource, ref: "abc1234def", pluginId: OWN_PLUGIN_ID },
+      note: expect.stringContaining("the source the hub uses; pinned to the hub's version"),
+    });
+    const registry = install(withOwn({ kind: "registry", installSource: OWN_INSTALL_SOURCE, ref: null, pinned: false }));
+    expect(registry).toMatchObject({ ok: true, note: expect.stringContaining("installs the latest release") });
+    expect(registry.ok && registry.input).not.toHaveProperty("ref");
+    for (const unknown of [withOwn(null), withOwn({ kind: "git", installSource: null, ref: null, pinned: false }), offline("hub-off")]) {
+      const hubHost = unknown.isHub ? unknown : { ...unknown, isHub: true };
+      expect(install(hubHost)).toMatchObject({ ok: true, input: { source: OWN_INSTALL_SOURCE }, note: expect.stringContaining("Paseo registry") });
+    }
+    expect(install(withOwn({ kind: "directory", installSource: null, ref: null, pinned: false }))).toMatchObject({ ok: false, reason: expect.stringContaining("local directory") });
   });
 });

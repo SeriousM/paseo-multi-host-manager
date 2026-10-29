@@ -1,8 +1,9 @@
-import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
+import { OWN_INSTALL_SOURCE, OWN_PLUGIN_ID } from "../../shared/companion-contracts";
 import { hasUrlCredentials } from "../../shared/mask";
 import { hasFeature, pluginsOn } from "../state/clipboard";
 import { formatPlugin, hostData } from "../state/grid-model";
-import type { GridHost, MhmState } from "../state/types";
+import { hostRef } from "../state/staging";
+import type { GridHost, MhmState, StageInput } from "../state/types";
 
 /** Same shape the server uses to tell a local path from a managed source (server/rpc/apply.ts). */
 const DIRECTORY_SOURCE = /^(\.\.?(?:[/\\]|$)|\/|~|[A-Za-z]:[/\\]|\\\\)/;
@@ -48,6 +49,34 @@ export function removeBlocker(host: GridHost, pluginId: string): string | null {
   if (!installed) return "not installed";
   if (host.isHub && pluginId === OWN_PLUGIN_ID) return "runs this view on the hub";
   return null;
+}
+
+export type CompanionInstall = { ok: true; input: StageInput; note: string } | { ok: false; reason: string };
+
+/**
+ * What "Install companion" stages on `target`: this plugin from the source the hub's own copy came from (registry, npm
+ * or git, pinned where the hub's source pins), so a git-installed and a registry-installed setup each stay on their
+ * channel. A hub running a local directory (a development install) has nothing other hosts can install from; when the
+ * hub's source is unknown, the Paseo registry is the fallback.
+ */
+export function companionInstall(state: Pick<MhmState, "hosts">, target: GridHost): CompanionInstall {
+  const hub = state.hosts.find((host) => host.isHub);
+  const source = hub ? plugin(hub, OWN_PLUGIN_ID)?.source : undefined;
+  const host = hostRef(target);
+  if (source?.kind === "directory") {
+    return { ok: false, reason: "The hub runs multi-host-manager from a local directory (a development install), which other hosts cannot install from. Install it on this host by hand." };
+  }
+  if (!source?.installSource) {
+    return {
+      ok: true,
+      input: { op: "installPlugin", host, source: OWN_INSTALL_SOURCE, pluginId: OWN_PLUGIN_ID },
+      note: `installs from the Paseo registry (${OWN_INSTALL_SOURCE}), since the hub's own source is unknown; the registry cannot pin a version`,
+    };
+  }
+  const input: StageInput = source.ref
+    ? { op: "installPlugin", host, source: source.installSource, ref: source.ref, pluginId: OWN_PLUGIN_ID }
+    : { op: "installPlugin", host, source: source.installSource, pluginId: OWN_PLUGIN_ID };
+  return { ok: true, input, note: `installs from ${source.installSource}, the source the hub uses; ${source.pinned ? "pinned to the hub's version" : "installs the latest release"}` };
 }
 
 export interface PluginMenuRules {
