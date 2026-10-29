@@ -22,7 +22,7 @@ export interface CompareView {
   state: CompareState;
   /** Readable line for the cell: what differs, or why it cannot be compared; null for a plain `same`. */
   note: string | null;
-  /** A host-specific row (listen address, saved connection, worktree root): compared and shown, never counted. */
+  /** A fact about the host (version, OS) or a host-specific row (listen address, saved connection, worktree root): compared and shown, never counted. */
   informational: boolean;
 }
 
@@ -95,7 +95,9 @@ export function compareRow(state: CompareInput, rowId: string, hostId: string): 
   const baseline = baselineHost(state);
   const host = state.hosts.find((candidate) => candidate.id === hostId);
   if (!baseline || !host) return null;
-  const informational = ROW_BY_ID[rowId]?.hostSpecific === true;
+  // Facts about the host rather than settings (version, OS) and host-specific rows inform; they are not differences.
+  const def = ROW_BY_ID[rowId];
+  const informational = def?.hostSpecific === true || def?.source === "server_info" || def?.source === "companion.info";
   if (host === baseline) return { state: "baseline", note: null, informational };
   const blocked = blockedReason(host, baseline);
   if (blocked) return { state: "not_comparable", note: blocked, informational };
@@ -159,10 +161,13 @@ export function differenceCount(state: CompareInput, hostId: string): number {
   return rows + plugins;
 }
 
-/** "Only differences": keep a row when some host differs from the baseline on it. Without a baseline every row stays. */
-export function rowHasDifferences(state: CompareInput, compare: (hostId: string) => CompareView | null): boolean {
+/**
+ * "Only differences": keep a row when some host differs from the baseline on it, or has a staged change in it (a change
+ * copied from the baseline makes the cell equal, and it must not vanish before Apply). Without a baseline every row stays.
+ */
+export function rowHasDifferences(state: CompareInput, compare: (hostId: string) => CompareView | null, staged: (hostId: string) => boolean = () => false): boolean {
   if (!baselineHost(state)) return true;
-  return state.hosts.some((host) => isCountedDifference(compare(host.id)));
+  return state.hosts.some((host) => isCountedDifference(compare(host.id)) || staged(host.id));
 }
 
 export interface BaselinePlan {
@@ -176,7 +181,7 @@ export function copyFromBaseline(state: Pick<MhmState, "hosts" | "staged" | "bas
   const baseline = baselineHost(state);
   if (!baseline || ref.kind === "doc") return null;
   const clip = clipFromCell(state, { ...ref, hostId: baseline.id });
-  if (!clip) return { ok: false as const, same: false, reason: ref.kind === "row" ? "read-only or no value on the baseline" : "not installed on the baseline" };
+  if (!clip) return { ok: false as const, same: false, reason: ref.kind === "row" ? "read-only or no value on the baseline" : "not on the baseline; remove it with Remove... if it should go" };
   return planPaste(state, clip, ref.hostId);
 }
 
@@ -208,7 +213,7 @@ export function withCompare(view: CellView, compare: CompareView | null): CellVi
   }
   if (view.unavailable && compare.state === "not_comparable") return { ...base, tone: view.tone };
   const informational = compare.informational && (compare.state === "differs" || compare.state === "missing");
-  const detail = compare.state === "baseline" ? view.detail : compare.state === "same" ? (compare.note ?? view.detail) : `${compare.note ?? ""}${informational ? " (host-specific)" : ""}`;
+  const detail = compare.state === "baseline" ? view.detail : compare.state === "same" ? (compare.note ?? view.detail) : `${compare.note ?? ""}${informational ? " (for information)" : ""}`;
   return { ...base, tone: informational ? "plain" : COMPARE_TONE[compare.state], detail };
 }
 

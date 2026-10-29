@@ -2,7 +2,7 @@ import { ScrollView } from "@getpaseo/plugin/client/ui";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { compareRow, compareRowCell, comparePlugin, comparePluginCell, rowHasDifferences } from "../state/compare";
-import { pluginRows, SETTINGS_ROWS } from "../state/grid-model";
+import { pluginRows, SETTINGS_ROWS, stagedFor } from "../state/grid-model";
 import type { PluginRow } from "../state/grid-model";
 import type { CellRef } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
@@ -74,8 +74,12 @@ export function GridView({ theme, controller }: Pick<MhmSurfaceProps, "theme" | 
   const { colors } = theme;
   const allPlugins = useMemo(() => pluginRows(state.hosts), [state.hosts]);
   // "Only differences": rows where every comparable host equals the baseline are hidden, in both columns alike.
-  const settings = state.onlyDifferences ? SETTINGS_ROWS.filter((row) => rowHasDifferences(state, (hostId) => compareRow(state, row.id, hostId))) : SETTINGS_ROWS;
-  const plugins = state.onlyDifferences ? allPlugins.filter((row) => rowHasDifferences(state, (hostId) => comparePlugin(state, row, hostId))) : allPlugins;
+  const settings = state.onlyDifferences
+    ? SETTINGS_ROWS.filter((row) => rowHasDifferences(state, (hostId) => compareRow(state, row.id, hostId), (hostId) => stagedFor(state, { kind: "row", rowId: row.id, hostId }) !== null))
+    : SETTINGS_ROWS;
+  const plugins = state.onlyDifferences
+    ? allPlugins.filter((row) => rowHasDifferences(state, (hostId) => comparePlugin(state, row, hostId), (hostId) => stagedFor(state, { kind: "plugin", pluginId: row.id, hostId }) !== null))
+    : allPlugins;
   const width = state.hosts.length * SIZES.columnWidth;
   const select = (ref: CellRef) => dispatch({ type: "select", ref });
 

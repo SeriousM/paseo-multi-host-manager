@@ -79,8 +79,9 @@ With a baseline, `compareRowCell` / `comparePluginCell` lay a compare state over
 `differs`, `missing` (the baseline has it, this host not) or `not_comparable` (a blocked host or baseline, or a side
 that cannot be read: companion missing, needs a newer Paseo, unreadable, never read). Rules:
 - Settings rows compare deeply; a leaf that is masked on either side is skipped ("secrets not compared" when that
-  is the only possible difference). Host-specific rows (listen, saved connection, worktree root) are compared but
-  only inform: they are not counted in a header's "N differ" and do not keep a row in "Only differences".
+  is the only possible difference). Facts about the host (version, OS) and host-specific rows (listen, saved
+  connection, worktree root) are compared but only inform: they are not counted in a header's "N differ" and do not
+  keep a row in "Only differences".
 - Plugins compare installed or not, version (`compareVersions`: older / newer / other revision) and enabled state.
 - Pending and applying staged items count as done: a cell compares the value it will have after Apply.
 - A baseline replaces the clipboard's source/differs highlight. "Copy from baseline" and "Stage N from baseline" go

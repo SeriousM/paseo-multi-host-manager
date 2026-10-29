@@ -73,7 +73,10 @@ describe("settings rows against the baseline", () => {
     expect(compareRow(state, "listen", "a")).toMatchObject({ state: "differs", informational: true });
     expect(differenceCount(state, "a")).toBe(0);
     expect(rowHasDifferences(state, (hostId) => compareRow(state, "listen", hostId))).toBe(false);
-    expect(compareRowCell(state, "listen", "a")).toMatchObject({ tone: "plain", detail: "differs from baseline (host-specific)" });
+    expect(compareRowCell(state, "listen", "a")).toMatchObject({ tone: "plain", detail: "differs from baseline (for information)" });
+    const older = withBaseline([hub, host("o", { ...BASE_ROWS, ver: ok("0.13.2") }, HUB_PLUGINS)]);
+    expect(compareRow(older, "ver", "o")).toMatchObject({ state: "differs", informational: true });
+    expect(differenceCount(older, "o")).toBe(0);
   });
 
   it("never compares secrets: masked leaves are skipped and said so", () => {
@@ -155,6 +158,7 @@ describe("baseline in the grid", () => {
     const state = withBaseline([hub, a]);
     expect(rowHasDifferences(state, (hostId) => compareRow(state, "mcp", hostId))).toBe(true);
     expect(rowHasDifferences(state, (hostId) => compareRow(state, "sys", hostId))).toBe(false);
+    expect(rowHasDifferences(state, (hostId) => compareRow(state, "sys", hostId), (hostId) => hostId === "a")).toBe(true);
     const none = run([hub, a], { type: "setOnlyDifferences", on: true });
     expect(none.onlyDifferences).toBe(false);
     expect(rowHasDifferences(none, (hostId) => compareRow(none, "sys", hostId))).toBe(true);
@@ -168,7 +172,6 @@ describe("baseline in the grid", () => {
     expect(planBaselineSync(state, "a")).toEqual({
       inputs: [{ op: "setRow", host: "reg-a", rowId: "mcp", value: true }],
       refusals: [
-        { label: "Paseo version", reason: "read-only or no value on the baseline" },
         { label: "keep", reason: "target is newer" },
       ],
     });
