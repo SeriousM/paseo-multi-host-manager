@@ -2,13 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  CONFIG_READ_PATHS,
-  consentSchema,
-  settingsReadRpc,
-  settingsWriteRpc,
-  type Consent,
-} from "../../shared/companion-contracts";
+import { CONFIG_READ_PATHS, settingsReadRpc, settingsWriteRpc } from "../../shared/companion-contracts";
 import { MASK_PLACEHOLDER } from "../../shared/mask";
 import { readConfig } from "../../server/companion/config";
 import { revisionOf, type CompanionContext } from "../../server/companion/files";
@@ -16,7 +10,6 @@ import { hostInfo } from "../../server/companion";
 import { listSettings, readSettings, restoreSettings, writeSettings } from "../../server/companion/plugin-settings";
 
 let home: string;
-let consent: Consent;
 let ctx: CompanionContext;
 
 const configFile = () => path.join(home, "config.json");
@@ -37,26 +30,18 @@ function writeSettingsFile(plugin: string, id: string, document: object): string
 
 beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "mhm-companion-"));
-  consent = { allowPluginSettingsWrites: true };
-  ctx = { home, consent: async () => consent };
+  ctx = { home };
 });
 
 afterEach(() => {
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-describe("consent defaults", () => {
-  it("the settings-write opt-in defaults to false and the removed config-write opt-in is dropped", () => {
-    expect(consentSchema.parse({})).toEqual({ allowPluginSettingsWrites: false });
-    expect(consentSchema.parse({ allowConfigWrites: true })).toEqual({ allowPluginSettingsWrites: false });
-  });
-});
-
 describe("hostInfo", () => {
   it("reports platform, arch and a home-relative path only, no OS release or Node version", () => {
-    const info = hostInfo(path.join(os.homedir(), ".paseo"), consent);
-    expect(info).toEqual({ platform: process.platform, arch: process.arch, paseoHome: "~/.paseo", consent });
-    expect(hostInfo(home, consent).paseoHome).toBeNull();
+    const info = hostInfo(path.join(os.homedir(), ".paseo"));
+    expect(info).toEqual({ platform: process.platform, arch: process.arch, paseoHome: "~/.paseo" });
+    expect(hostInfo(home).paseoHome).toBeNull();
   });
 });
 
@@ -113,8 +98,7 @@ describe("plugin settings documents", () => {
     ]);
   });
 
-  it("reads with secrets masked by key and by value, and works with opt-in off", () => {
-    consent = { allowPluginSettingsWrites: false };
+  it("reads with secrets masked by key and by value", () => {
     const revision = writeSettingsFile("other-plugin", "main", { version: 2, values: { name: "n", apiToken: "abc", note: "ghp_zzz" } });
     expect(readSettings(ctx, ref)).toEqual({
       ok: true,
@@ -130,41 +114,41 @@ describe("plugin settings documents", () => {
     expect(readSettings(ctx, ref)).toMatchObject({ ok: true, revision: "missing", version: null, values: null });
   });
 
-  it("is capability_disabled for write and restore when allowPluginSettingsWrites is off", async () => {
+  it("ignores a companion.json left by the removed write opt-in, and leaves it alone", async () => {
+    const stale = writeSettingsFile("paseo-multi-host-manager", "companion", { version: 1, values: { allowPluginSettingsWrites: false } });
     const revision = writeSettingsFile("other-plugin", "main", { version: 1, values: { a: 1 } });
-    consent = { allowPluginSettingsWrites: false };
-    expect(await writeSettings(ctx, { ...ref, expectedRevision: revision, version: 1, values: { a: 2 } })).toMatchObject({ ok: false, code: "capability_disabled" });
-    expect(await restoreSettings(ctx, { ...ref, expectedRevision: revision })).toMatchObject({ ok: false, code: "capability_disabled" });
-    expect(JSON.parse(fs.readFileSync(settingsFile("other-plugin", "main"), "utf8"))).toEqual({ version: 1, values: { a: 1 } });
+    expect(await writeSettings(ctx, { ...ref, expectedRevision: revision, version: 1, values: { a: 2 } })).toMatchObject({ ok: true });
+    expect(JSON.parse(fs.readFileSync(settingsFile("other-plugin", "main"), "utf8"))).toEqual({ version: 1, values: { a: 2 } });
+    expect(revisionOf(fs.readFileSync(settingsFile("paseo-multi-host-manager", "companion")))).toBe(stale);
   });
 
   it("refuses to write the companion's own settings", async () => {
-    const result = await writeSettings(ctx, { pluginId: "paseo-multi-host-manager", settingsId: "companion", expectedRevision: "missing", version: 1, values: { allowPluginSettingsWrites: true } });
+    const result = await writeSettings(ctx, { pluginId: "paseo-multi-host-manager", settingsId: "broker", expectedRevision: "missing", version: 1, values: { allowPrerelease: true } });
     expect(result).toMatchObject({ ok: false, code: "not_allowed" });
-    expect(fs.existsSync(settingsFile("paseo-multi-host-manager", "companion"))).toBe(false);
+    expect(fs.existsSync(settingsFile("paseo-multi-host-manager", "broker"))).toBe(false);
   });
 
   it("refuses the own settings through a case alias, for write and restore", async () => {
-    const alias = { pluginId: "PASEO-Multi-Host-Manager", settingsId: "companion" };
-    expect(await writeSettings(ctx, { ...alias, expectedRevision: "missing", version: 1, values: { allowPluginSettingsWrites: true } })).toMatchObject({ ok: false, code: "not_allowed" });
+    const alias = { pluginId: "PASEO-Multi-Host-Manager", settingsId: "broker" };
+    expect(await writeSettings(ctx, { ...alias, expectedRevision: "missing", version: 1, values: { allowPrerelease: true } })).toMatchObject({ ok: false, code: "not_allowed" });
     expect(await restoreSettings(ctx, { ...alias, expectedRevision: "missing" })).toMatchObject({ ok: false, code: "not_allowed" });
     expect(fs.existsSync(path.join(home, "plugin-settings"))).toBe(false);
   });
 
   it("rejects a trailing-dot alias of the own settings directory", async () => {
-    const alias = { pluginId: "paseo-multi-host-manager.", settingsId: "companion" };
-    expect(await writeSettings(ctx, { ...alias, expectedRevision: "missing", version: 1, values: { allowPluginSettingsWrites: true } })).toMatchObject({ ok: false, code: "invalid_input" });
+    const alias = { pluginId: "paseo-multi-host-manager.", settingsId: "broker" };
+    expect(await writeSettings(ctx, { ...alias, expectedRevision: "missing", version: 1, values: { allowPrerelease: true } })).toMatchObject({ ok: false, code: "invalid_input" });
     expect(await writeSettings(ctx, { pluginId: "other-plugin", settingsId: "companion.", expectedRevision: "missing", version: 1, values: {} })).toMatchObject({ ok: false, code: "invalid_input" });
     expect(settingsWriteRpc.input.safeParse({ ...alias, expectedRevision: "missing", version: 1, values: {} }).success).toBe(false);
     expect(fs.existsSync(path.join(home, "plugin-settings"))).toBe(false);
   });
 
   it("refuses the own settings through a directory junction or symlink", async () => {
-    const ownRevision = writeSettingsFile("paseo-multi-host-manager", "companion", { version: 1, values: { allowPluginSettingsWrites: true } });
-    const ownFile = settingsFile("paseo-multi-host-manager", "companion");
+    const ownRevision = writeSettingsFile("paseo-multi-host-manager", "broker", { version: 1, values: { allowPrerelease: false } });
+    const ownFile = settingsFile("paseo-multi-host-manager", "broker");
     fs.symlinkSync(path.dirname(ownFile), path.join(home, "plugin-settings", "linked-plugin"), "junction");
-    const linked = { pluginId: "linked-plugin", settingsId: "companion" };
-    expect(await writeSettings(ctx, { ...linked, expectedRevision: ownRevision, version: 1, values: { allowPluginSettingsWrites: false } })).toMatchObject({ ok: false, code: "not_allowed" });
+    const linked = { pluginId: "linked-plugin", settingsId: "broker" };
+    expect(await writeSettings(ctx, { ...linked, expectedRevision: ownRevision, version: 1, values: { allowPrerelease: true } })).toMatchObject({ ok: false, code: "not_allowed" });
     expect(await restoreSettings(ctx, { ...linked, expectedRevision: ownRevision })).toMatchObject({ ok: false, code: "not_allowed" });
     expect(revisionOf(fs.readFileSync(ownFile))).toBe(ownRevision);
   });

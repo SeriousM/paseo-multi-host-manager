@@ -23,7 +23,7 @@ function data(overrides: Partial<GridHostData> = {}): GridHostData {
   return {
     rows: { relay: ok(true), pen: ok(true), mcp: ok(true) },
     plugins: [plugin(OWN_PLUGIN_ID)],
-    companion: { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: true }, settingsDocuments: [] },
+    companion: { state: "ok", platform: "linux", arch: "x64", settingsDocuments: [] },
     ...overrides,
   };
 }
@@ -272,7 +272,7 @@ describe("plugin dialog rules", () => {
     expect(pluginMenuRules(dir, "loc").update).toBe("local plugins have no update source");
     expect(pluginMenuRules(host("a", { features: ["pluginManagement"] }), OWN_PLUGIN_ID).update).toBe("host lacks pluginSourceUpdates");
     expect(pluginMenuRules(host("a"), OWN_PLUGIN_ID)).toMatchObject({ update: null, manage: null, editor: "no settings document on this host" });
-    const withDoc = host("w", { data: data({ companion: { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: true }, settingsDocuments: [{ pluginId: "x", settingsId: "main", revision: "r", hasBackup: false }] } }) });
+    const withDoc = host("w", { data: data({ companion: { state: "ok", platform: "linux", arch: "x64", settingsDocuments: [{ pluginId: "x", settingsId: "main", revision: "r", hasBackup: false }] } }) });
     expect(pluginMenuRules(withDoc, "x")).toMatchObject({ documents: ["main"], editor: null });
   });
 

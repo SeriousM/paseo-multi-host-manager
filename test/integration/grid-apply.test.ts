@@ -7,7 +7,7 @@ import { applyPollRpc, applyStartRpc, gridLoadRpc, docReadRpc } from "../../shar
 import type { ApplyItem, ApplyResult, GridHostData } from "../../shared/contracts";
 import { patchConfigVerified } from "../../server/broker/config-patch";
 import type { DaemonClient } from "../../server/broker/daemon-client";
-import { connectDirectW, connectHub, enabled, hostFiles, HUB_HOME, PLUGIN_ID, readSecrets, readState, relayPairing, routeTo, setConsent } from "./env";
+import { connectDirectW, connectHub, enabled, hostFiles, HUB_HOME, PLUGIN_ID, readSecrets, readState, relayPairing, routeTo, STALE_OPT_IN } from "./env";
 
 const policy = { allowPrerelease: false, insecureLinkRegistrationIds: [] };
 const KEEP_AWAKE = "hichamboushaba/keep-awake";
@@ -78,7 +78,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
         expect(data.rows.listen).toMatchObject({ state: "ok", value: `127.0.0.1:${port}` });
         expect(data.rows.relay).toMatchObject({ state: "ok", value: true });
         expect(data.rows.pen).toMatchObject({ state: "ok", value: true });
-        expect(data.companion).toMatchObject({ state: "ok", platform, consent: { allowPluginSettingsWrites: false } });
+        expect(data.companion).toMatchObject({ state: "ok", platform });
         expect(data.plugins.find((plugin) => plugin.id === PLUGIN_ID)).toMatchObject({ enabled: true, status: "running" });
       }
     });
@@ -260,7 +260,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
         files.remove(DUMMY_FILE);
         files.remove(`${DUMMY_FILE}.bak`);
       }
-      setConsent(hostFiles.L, false);
+      hostFiles.L.remove(STALE_OPT_IN);
     };
     beforeAll(() => {
       clean();
@@ -268,12 +268,6 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
     });
     afterAll(clean);
 
-    it("is refused while L has not opted in", async () => {
-      const target = await readDoc(ids.L);
-      if (!target.ok || !target.value.ok) throw new Error("read L failed");
-      const [result] = await apply({ id: "w", host: ids.L, op: "writeSettingsDoc", ...DUMMY, expectedRevision: target.value.revision, version: 2, values: { name: "x" } });
-      expect(result.outcome).toMatchObject({ status: "failed", error: { code: "capability_disabled", detail: "capability_disabled" } });
-    });
 
     it("reads W's document masked and lists it in the grid", async () => {
       const source = await readDoc(ids.W);
@@ -284,7 +278,8 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
     });
 
     it("writes the pasted document to L, reports validity unknown and the plugin can then be reloaded", async () => {
-      setConsent(hostFiles.L, true);
+      // A companion.json from the removed per-host opt-in, switched off, must not block the write.
+      hostFiles.L.write(STALE_OPT_IN, JSON.stringify({ version: 1, values: { allowPluginSettingsWrites: false } }));
       const source = await readDoc(ids.W);
       const target = await readDoc(ids.L);
       if (!source.ok || !source.value.ok || !target.ok || !target.value.ok) throw new Error("read failed");

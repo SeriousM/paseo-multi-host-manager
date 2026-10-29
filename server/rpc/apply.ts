@@ -112,6 +112,7 @@ function documentOutcome(revision: string): OkOutcome {
 }
 
 function companionFailure(result: CompanionFailure): ApplyOutcome {
+  // capability_disabled comes only from an older companion that still had the per-host write opt-in.
   const code = result.code === "capability_disabled" ? "capability_disabled" : "host_error";
   return failed(hostFailure(code, result.code), result.currentRevision);
 }

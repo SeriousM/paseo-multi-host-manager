@@ -1,12 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { CompanionFailure, Consent } from "../../shared/companion-contracts";
+import type { CompanionFailure } from "../../shared/companion-contracts";
 
 export interface CompanionContext {
   /** $PASEO_HOME */
   home: string;
-  consent: () => Promise<Consent>;
 }
 
 export const MISSING_REVISION = "missing";

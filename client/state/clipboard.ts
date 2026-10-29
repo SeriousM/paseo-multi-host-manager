@@ -126,7 +126,6 @@ function pasteDoc(clip: Extract<ClipboardEntry, { kind: "doc" }>, target: GridHo
   if (!data?.plugins.some((plugin) => plugin.id === clip.pluginId)) return refuse("plugin not installed on this host");
   if (clip.pluginId.toLowerCase() === OWN_PLUGIN_ID) return refuse("multi-host-manager's own settings are changed on each host itself");
   if (data.companion.state !== "ok") return refuse("needs multi-host-manager running on this host");
-  if (!data.companion.consent.allowPluginSettingsWrites) return refuse("settings writes are off on this host (opt-in in its multi-host-manager settings)");
   if (!hasFeature(target, "pluginSettings")) return refuse("host lacks pluginSettings");
   const existing = data.companion.settingsDocuments.find((doc) => doc.pluginId === clip.pluginId && doc.settingsId === clip.settingsId);
   const input: StageInput = {

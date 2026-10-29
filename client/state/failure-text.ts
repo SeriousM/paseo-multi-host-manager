@@ -31,7 +31,7 @@ const HOST_ERROR_TEXT: Record<string, string> = {
 };
 
 const CAPABILITY_DISABLED_TEXT: Record<string, string> = {
-  capability_disabled: "Settings writes are off on this host. Allow them in its multi-host-manager settings.",
+  capability_disabled: "This host runs an older multi-host-manager that still needs its write opt-in. Update multi-host-manager there.",
   companion_disabled: "multi-host-manager is installed but not running on this host.",
 };
 

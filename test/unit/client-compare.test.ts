@@ -37,7 +37,7 @@ function host(id: string, rows: Rows, plugins: GridPlugin[] = [plugin(OWN_PLUGIN
     result: {
       ok: true,
       snapshot: { serverId: id, version: "0.14.0", protocolVersion: 1, prerelease: false, features: FEATURES },
-      value: { rows, plugins, companion: { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: true }, settingsDocuments: [] } },
+      value: { rows, plugins, companion: { state: "ok", platform: "linux", arch: "x64", settingsDocuments: [] } },
     },
   };
 }

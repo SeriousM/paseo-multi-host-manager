@@ -117,8 +117,7 @@ function linuxFiles(): HostFiles {
 
 export const hostFiles: Record<"W" | "L", HostFiles> = { W: winFiles(), L: linuxFiles() };
 
-export const COMPANION_SETTINGS = `plugin-settings/${PLUGIN_ID}/companion.json`;
-
-export function setConsent(files: HostFiles, allowPluginSettingsWrites: boolean): void {
-  files.write(COMPANION_SETTINGS, JSON.stringify({ version: 1, values: { allowPluginSettingsWrites } }));
-}
+/** This plugin's own broker policy document; the companion refuses remote writes to it. */
+export const OWN_SETTINGS = `plugin-settings/${PLUGIN_ID}/broker.json`;
+/** Left on a host by the removed per-host write opt-in; the companion ignores it. */
+export const STALE_OPT_IN = `plugin-settings/${PLUGIN_ID}/companion.json`;

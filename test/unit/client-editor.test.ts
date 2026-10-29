@@ -133,7 +133,7 @@ function host(overrides: { companion?: GridHostData["companion"]; plugins?: stri
   const data: GridHostData = {
     rows: {},
     plugins: (overrides.plugins ?? ["keep-awake"]).map((id) => ({ id, name: id, version: "1", enabled: true, status: "running", source: { kind: "npm", installSource: null, ref: null, pinned: false } })),
-    companion: overrides.companion ?? { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: true }, settingsDocuments: [] },
+    companion: overrides.companion ?? { state: "ok", platform: "linux", arch: "x64", settingsDocuments: [] },
   };
   return {
     id: overrides.id ?? "L",
@@ -146,26 +146,20 @@ function host(overrides: { companion?: GridHostData["companion"]; plugins?: stri
 }
 
 describe("editorAccess", () => {
-  it("allows a host with companion, consent and the feature", () => {
+  it("allows any host with a running companion and the feature: there is no per-host opt-in", () => {
     expect(editorAccess(host(), "keep-awake")).toEqual({ ok: true });
-  });
-
-  it("explains that consent is set on the host itself, with no toggle", () => {
-    const access = editorAccess(host({ companion: { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: false }, settingsDocuments: [] } }), "keep-awake");
-    expect(access).toMatchObject({ ok: false, optIn: true });
-    if (!access.ok) expect(access.reason).toContain("read-only");
   });
 
   it("names the companion state", () => {
     for (const state of ["missing", "disabled", "failed"] as const) {
       const access = editorAccess(host({ companion: { state } }), "keep-awake");
-      expect(access).toMatchObject({ ok: false, optIn: false });
+      expect(access).toMatchObject({ ok: false });
       if (!access.ok) expect(access.reason).toContain("multi-host-manager");
     }
   });
 
   it("keeps multi-host-manager's own documents read-only: the companion refuses remote writes to them", () => {
-    expect(editorAccess(host({ plugins: ["paseo-multi-host-manager"] }), "paseo-multi-host-manager")).toMatchObject({ ok: false, optIn: false, reason: expect.stringContaining("read-only") });
+    expect(editorAccess(host({ plugins: ["paseo-multi-host-manager"] }), "paseo-multi-host-manager")).toMatchObject({ ok: false, reason: expect.stringContaining("read-only") });
   });
 
   it("refuses a missing plugin, missing feature, offline or unknown host", () => {

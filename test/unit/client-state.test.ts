@@ -28,7 +28,7 @@ function data(overrides: Partial<GridHostData> = {}): GridHostData {
   return {
     rows: { relay: ok(true), pen: ok(true), mcp: ok(true), sys: ok("Be concise."), ver: ok("0.13.2") },
     plugins: [plugin(OWN_PLUGIN_ID, { version: "0.1.0" })],
-    companion: { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: true }, settingsDocuments: [] },
+    companion: { state: "ok", platform: "linux", arch: "x64", settingsDocuments: [] },
     ...overrides,
   };
 }
@@ -196,15 +196,15 @@ describe("clipboard and paste planning", () => {
     expect(planPaste(state, { kind: "plugin", pluginId: "local", sourceHost: "hub", plugin: dir }, "a")).toMatchObject({ ok: false, reason: expect.stringContaining("directory") });
   });
 
-  it("pastes a settings document only where the companion runs and writes are allowed", () => {
+  it("pastes a settings document wherever the companion runs, and never this plugin's own", () => {
     const doc = { kind: "doc" as const, pluginId: "keep", settingsId: "display", sourceHost: "hub", version: 1, values: { mode: "x" }, maskedPaths: [] };
-    const withDoc = data({ plugins: [plugin("keep")], companion: { state: "ok", platform: "win32", arch: "x64", consent: { allowPluginSettingsWrites: true }, settingsDocuments: [{ pluginId: "keep", settingsId: "display", revision: "r7", hasBackup: false }] } });
-    const noConsent = data({ plugins: [plugin("keep")], companion: { state: "ok", platform: "linux", arch: "x64", consent: { allowPluginSettingsWrites: false }, settingsDocuments: [] } });
+    const withDoc = data({ plugins: [plugin("keep")], companion: { state: "ok", platform: "win32", arch: "x64", settingsDocuments: [{ pluginId: "keep", settingsId: "display", revision: "r7", hasBackup: false }] } });
+    const noDoc = data({ plugins: [plugin("keep")], companion: { state: "ok", platform: "linux", arch: "x64", settingsDocuments: [] } });
     const fresh = data({ plugins: [plugin("keep")] });
-    const state = run([hub, host("a", { data: withDoc }), host("b", { data: noConsent }), host("c", { data: fresh }), host("d", { data: data({ plugins: [plugin("keep")], companion: { state: "missing" } }) })]);
+    const state = run([hub, host("a", { data: withDoc }), host("b", { data: noDoc }), host("c", { data: fresh }), host("d", { data: data({ plugins: [plugin("keep")], companion: { state: "missing" } }) })]);
     expect(planPaste(state, doc, "a")).toMatchObject({ ok: true, inputs: [{ op: "writeSettingsDoc", expectedRevision: "r7", values: { mode: "x" } }] });
     expect(planPaste(state, doc, "c")).toMatchObject({ ok: true, inputs: [{ expectedRevision: "missing" }] });
-    expect(planPaste(state, doc, "b")).toMatchObject({ ok: false, reason: expect.stringContaining("opt-in") });
+    expect(planPaste(state, doc, "b")).toMatchObject({ ok: true, inputs: [{ expectedRevision: "missing" }] });
     expect(planPaste(state, doc, "d")).toMatchObject({ ok: false, reason: expect.stringContaining("multi-host-manager") });
     expect(planPaste(state, { ...doc, pluginId: OWN_PLUGIN_ID, sourceHost: "a" }, "hub")).toMatchObject({ ok: false, reason: expect.stringContaining("own settings") });
   });

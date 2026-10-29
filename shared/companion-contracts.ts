@@ -10,11 +10,6 @@ export const OWN_PLUGIN_ID = "paseo-multi-host-manager";
  */
 export const OWN_INSTALL_SOURCE = "seriousm/paseo-multi-host-manager";
 
-export const consentSchema = z.object({
-  allowPluginSettingsWrites: z.boolean().default(false),
-});
-export type Consent = z.infer<typeof consentSchema>;
-
 /**
  * Restart-only rows of ROWS.md: not in `config.get`, so the companion reads them from `config.json` for display.
  * They are never written; every reload-safe key is live through the hub's `config.patch`.
@@ -22,6 +17,7 @@ export type Consent = z.infer<typeof consentSchema>;
 export const CONFIG_READ_PATHS: readonly string[] = ["daemon.listen", "worktrees.root", "log.console.level"];
 
 export const companionErrorCodes = [
+  // Only from an older companion that still had the per-host write opt-in; this version never answers it.
   "capability_disabled",
   "conflict",
   "not_allowed",
@@ -57,7 +53,6 @@ export const hostInfoRpc = defineRpc({
     platform: z.string(),
     arch: z.string(),
     paseoHome: z.string().nullable(),
-    consent: consentSchema,
   }),
 });
 

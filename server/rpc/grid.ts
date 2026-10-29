@@ -25,7 +25,7 @@ async function readCompanion(client: DaemonClient, plugins: PluginListItem[], pl
       callCompanion(client, settingsListRpc, {}),
     ]);
     return {
-      state: { state: "ok", platform: info.platform, arch: info.arch, consent: info.consent, settingsDocuments: documents.documents } satisfies CompanionState,
+      state: { state: "ok", platform: info.platform, arch: info.arch, settingsDocuments: documents.documents } satisfies CompanionState,
       rows: { platform: info.platform, configValues: config.ok ? config.values : ("unreadable" as const) },
     };
   } catch {

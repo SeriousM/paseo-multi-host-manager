@@ -106,13 +106,10 @@ export function readSettings(ctx: CompanionContext, ref: DocumentRef): Ok<typeof
   };
 }
 
-async function locateWritable(ctx: CompanionContext, ref: DocumentRef): Promise<{ file: string } | { error: CompanionFailure }> {
-  if (!(await ctx.consent()).allowPluginSettingsWrites) {
-    return { error: failure("capability_disabled", "This host has not enabled plugin settings writes (allowPluginSettingsWrites).") };
-  }
+function locateWritable(ctx: CompanionContext, ref: DocumentRef): { file: string } | { error: CompanionFailure } {
   const located = locate(ctx.home, ref);
   if ("error" in located) return located;
-  // Our own consent document must only be changed by the host's user, never through this RPC.
+  // This plugin's own documents (the hub's broker policy) are changed only by its own screen, never through this RPC.
   if (isOwnDocument(ctx.home, ref.pluginId, located.file)) {
     return { error: failure("not_allowed", "The companion's own settings cannot be written remotely.") };
   }
@@ -123,7 +120,7 @@ export async function writeSettings(
   ctx: CompanionContext,
   input: DocumentRef & { expectedRevision: string; version: number; values: Json },
 ): Promise<Ok<typeof settingsWriteRpc> | CompanionFailure> {
-  const located = await locateWritable(ctx, input);
+  const located = locateWritable(ctx, input);
   if ("error" in located) return located.error;
 
   // Re-read and compare immediately before writing; everything below is synchronous.
@@ -149,7 +146,7 @@ export async function restoreSettings(
   ctx: CompanionContext,
   input: DocumentRef & { expectedRevision: string },
 ): Promise<Ok<typeof settingsRestoreRpc> | CompanionFailure> {
-  const located = await locateWritable(ctx, input);
+  const located = locateWritable(ctx, input);
   if ("error" in located) return located.error;
 
   const before = readBytes(located.file);

@@ -21,7 +21,7 @@ const OWN = "paseo-multi-host-manager";
 afterEach(() => routed.mockReset());
 
 const companionAnswers = {
-  "mhm.host.info": { platform: "linux", arch: "x64", paseoHome: "~/.paseo", consent: { allowPluginSettingsWrites: false } },
+  "mhm.host.info": { platform: "linux", arch: "x64", paseoHome: "~/.paseo" },
   "mhm.config.read": { ok: true, revision: "r1", values: { "worktrees.root": "/home/u/wt", "log.console.level": "info", "daemon.listen": "127.0.0.1:6767" }, maskedPaths: [] },
   "mhm.settings.list": { documents: [{ pluginId: "keep-awake", settingsId: "display", revision: "d1", hasBackup: false }] },
 };
@@ -135,14 +135,13 @@ describe("companion state", () => {
     expect(data.rows.listen.state).toBe("ok");
   });
 
-  it("is ok with consent, platform and the settings documents", async () => {
+  it("is ok with platform and the settings documents", async () => {
     const { fakes, load } = setup({ srv_W: { plugins: [plugin(OWN)], rpc: companionAnswers } });
     const data = dataOf(await load(), "srv_W");
     expect(data.companion).toEqual({
       state: "ok",
       platform: "linux",
       arch: "x64",
-      consent: { allowPluginSettingsWrites: false },
       settingsDocuments: [{ pluginId: "keep-awake", settingsId: "display", revision: "d1", hasBackup: false }],
     });
     expect(fakes.srv_W.rpc).toHaveBeenCalledTimes(3);

@@ -18,7 +18,7 @@ const COMPANION_TEXT: Record<string, string> = {
   failed: "multi-host-manager is installed but failed to start. See the plugin's log on that host.",
 };
 
-/** Host version and tier, missing features and what they block, link kind with the opt-in for unencrypted links, companion state. */
+/** Host version and tier, missing features and what they block, link kind with the allowance for unencrypted links, companion state. */
 export function CapabilitiesDialog({ theme, controller, onClose, hostId }: DialogProps & { hostId: string }) {
   const { colors } = theme;
   const { state, dispatch, policy } = controller;

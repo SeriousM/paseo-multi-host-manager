@@ -109,8 +109,6 @@ export async function demoUp() {
     }
 
     const source = publishCheckout();
-    // The companion on the hub may write other plugins' documents (opt-in on that host); it is the editor's demo host.
-    writeDoc(hubHome, PLUGIN_ID, "companion", { allowPluginSettingsWrites: true });
     writeDoc(hubHome, "keep-awake", "display", { mode: "display", preventSleep: true, notifyAfterMinutes: 30, webhookToken: "sk-demo-0000000000000000" });
     await hub.installPluginSource({ source: source.windows });
     must(windowsPaseo("laptop", "plugin", "add", source.windows, "--home", winHome), "install on laptop");

@@ -1,7 +1,7 @@
 import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
 import type { ZodType } from "zod";
-import { consentSchema, settingsListRpc, settingsReadRpc, settingsRestoreRpc, settingsWriteRpc } from "./companion-contracts";
+import { settingsListRpc, settingsReadRpc, settingsRestoreRpc, settingsWriteRpc } from "./companion-contracts";
 import { ERROR_CODES } from "./errors";
 
 export const pingRpc = defineRpc({
@@ -183,7 +183,6 @@ export const companionStateSchema = z.discriminatedUnion("state", [
     state: z.literal("ok"),
     platform: z.string(),
     arch: z.string(),
-    consent: consentSchema,
     /** Settings documents on the host (metadata only), for the editor and the document paste. */
     settingsDocuments: settingsListRpc.output.shape.documents,
   }),

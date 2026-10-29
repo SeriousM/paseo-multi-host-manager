@@ -433,7 +433,7 @@ describe("settings documents", () => {
     expect(results[0].outcome).toMatchObject({ status: "failed", error: { code: "host_error", detail: "conflict" }, currentRevision: "rev9" });
   });
 
-  it("maps a refused opt-in to capability_disabled", async () => {
+  it("maps the opt-in refusal of an older companion to capability_disabled", async () => {
     const { session } = setup({ L: { plugins: [companion], rpc: { "mhm.settings.write": { ok: false, code: "capability_disabled", message: "off" } } } });
     const results = await run(session, [{ id: "w", host: "srv_L", ...write }]);
     expect(results[0].outcome).toMatchObject({ status: "failed", error: { code: "capability_disabled" } });

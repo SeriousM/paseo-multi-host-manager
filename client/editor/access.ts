@@ -6,34 +6,27 @@ import { hostData } from "../state/grid-model";
 import { itemOnHost } from "../state/staging";
 import type { GridHost, StagedItem, WrittenDoc } from "../state/types";
 
-export type EditorAccess =
-  | { ok: true }
-  /** `optIn`: the reason is the consent switch, which is set on the target host only. */
-  | { ok: false; reason: string; optIn: boolean };
-
-/** Where the opt-in lives; shown whenever consent is the reason. This view never offers a toggle for it. */
-export const OPT_IN_EXPLANATION =
-  "Writing plugin settings is opt-in per host. The switch (allowPluginSettingsWrites) is in the multi-host-manager settings on that host itself and cannot be changed from here; anyone authenticated to that host can set it.";
+export type EditorAccess = { ok: true } | { ok: false; reason: string };
 
 /** Whether the editor can read and write `pluginId`'s documents on `host`; otherwise why not. Mirrors the paste rules. */
 export function editorAccess(host: GridHost | undefined, pluginId: string): EditorAccess {
-  if (!host) return { ok: false, reason: "The host is no longer in the hub's list.", optIn: false };
-  if (!host.result.ok) return { ok: false, reason: `${host.label} is not reachable: ${host.result.error.message}`, optIn: false };
+  if (!host) return { ok: false, reason: "The host is no longer in the hub's list." };
+  if (!host.result.ok) return { ok: false, reason: `${host.label} is not reachable: ${host.result.error.message}` };
   const data = hostData(host);
-  if (!data) return { ok: false, reason: `${host.label} returned no data.`, optIn: false };
-  if (!host.result.snapshot.features.includes("pluginSettings")) return { ok: false, reason: `${host.label} runs a Paseo version without plugin settings documents.`, optIn: false };
-  if (!data.plugins.some((plugin) => plugin.id === pluginId)) return { ok: false, reason: `${pluginId} is not installed on ${host.label}.`, optIn: false };
-  // The companion refuses writes to its own documents (`not_allowed`): they hold the consent switch.
-  if (pluginId.toLowerCase() === OWN_PLUGIN_ID) return { ok: false, reason: `multi-host-manager's own settings can only be changed on ${host.label} itself. This editor is read-only for them.`, optIn: false };
+  if (!data) return { ok: false, reason: `${host.label} returned no data.` };
+  if (!host.result.snapshot.features.includes("pluginSettings")) return { ok: false, reason: `${host.label} runs a Paseo version without plugin settings documents.` };
+  if (!data.plugins.some((plugin) => plugin.id === pluginId)) return { ok: false, reason: `${pluginId} is not installed on ${host.label}.` };
+  // The companion refuses writes to its own documents (`not_allowed`): they hold this plugin's own state (the hub's broker policy).
+  if (pluginId.toLowerCase() === OWN_PLUGIN_ID) return { ok: false, reason: `multi-host-manager's own settings can only be changed on ${host.label} itself. This editor is read-only for them.` };
   switch (data.companion.state) {
     case "missing":
-      return { ok: false, reason: `multi-host-manager is not installed on ${host.label}; it reads and writes the documents there. Install it on that host first.`, optIn: false };
+      return { ok: false, reason: `multi-host-manager is not installed on ${host.label}; it reads and writes the documents there. Install it on that host first.` };
     case "disabled":
-      return { ok: false, reason: `multi-host-manager is disabled on ${host.label} (or its plugins are switched off); enable it there first.`, optIn: false };
+      return { ok: false, reason: `multi-host-manager is disabled on ${host.label} (or its plugins are switched off); enable it there first.` };
     case "failed":
-      return { ok: false, reason: `multi-host-manager failed to start on ${host.label}.`, optIn: false };
+      return { ok: false, reason: `multi-host-manager failed to start on ${host.label}.` };
     case "ok":
-      return data.companion.consent.allowPluginSettingsWrites ? { ok: true } : { ok: false, reason: `Settings writes are off on ${host.label}. This editor is read-only there.`, optIn: true };
+      return { ok: true };
   }
 }
 
@@ -80,7 +73,7 @@ export interface DocStatus {
 }
 
 const FAILURE_TEXT: Record<string, string> = {
-  capability_disabled: "Settings writes are off on the host (opt-in on that host).",
+  capability_disabled: "The host runs an older multi-host-manager that still needs its write opt-in. Update multi-host-manager there.",
   invalid_input: "The host rejected the document: a <masked> placeholder has no stored value there, or the values are malformed.",
   invalid_document: "The host rejected the document as invalid.",
   not_allowed: "The host does not allow this write.",

@@ -9,7 +9,7 @@ import type { DialogProps } from "../dialogs/dialog-frame";
 import { font, MONO, TYPE } from "../grid/palette";
 import { Badge, Button } from "../grid/primitives";
 import { findHost } from "../state/grid-model";
-import { docStatus, editorAccess, OPT_IN_EXPLANATION, stagedFor, toLoadedDoc, writtenFor, writtenStatus } from "./access";
+import { docStatus, editorAccess, stagedFor, toLoadedDoc, writtenFor, writtenStatus } from "./access";
 import type { LoadedDoc } from "./access";
 import { DocFields } from "./doc-fields";
 import { pasteNote, planDocPaste, previewWrite } from "./doc-preview";
@@ -167,7 +167,6 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
               <Badge theme={theme} label="read-only" severity="warn" />
               <Text style={{ color: colors.foreground, ...font(TYPE.body), flexShrink: 1 }}>{access.reason}</Text>
             </View>
-            {access.optIn ? <Note color={colors.foregroundMuted} text={OPT_IN_EXPLANATION} /> : null}
           </View>
         )}
 

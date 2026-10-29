@@ -10,7 +10,7 @@ import {
 import { patchConfigVerified } from "../../server/broker/config-patch";
 import { MASK_PLACEHOLDER } from "../../shared/mask";
 import type { DaemonClient, RoutedClient } from "../../server/broker/daemon-client";
-import { COMPANION_SETTINGS, connectHub, enabled, hostFiles, PLUGIN_ID, routeTo, setConsent } from "./env";
+import { connectHub, enabled, hostFiles, OWN_SETTINGS, PLUGIN_ID, routeTo } from "./env";
 import type { HostFiles } from "./env";
 
 // Unique per run so the suite can be repeated against the same environment.
@@ -37,7 +37,6 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     routed = await routeTo(hub, key);
     host = routed.client;
     originalPrompt = (await host.getDaemonConfig()).config.appendSystemPrompt ?? "";
-    setConsent(files, false);
     files.remove(`${DUMMY_FILE}.bak`);
     files.write(DUMMY_FILE, JSON.stringify({ version: 1, values: { name: "dummy", count: 3, apiToken: SECRET, nested: { password: "pw-12345" } } }));
   });
@@ -45,25 +44,15 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     await patchConfigVerified(host, { appendSystemPrompt: originalPrompt }).catch(() => undefined);
     files.remove(DUMMY_FILE);
     files.remove(`${DUMMY_FILE}.bak`);
-    setConsent(files, false);
     await routed?.close();
     await hub?.close();
   });
 
-  it("host.info reports platform and arch only, and no consent", async () => {
-    const raw = await host.invokePluginRpc(PLUGIN_ID, hostInfoRpc.name, {});
-    expect(Object.keys(raw as object).sort()).toEqual(["arch", "consent", "paseoHome", "platform"]);
-    const info = hostInfoRpc.output.parse(raw);
+  it("host.info reports platform, arch and a home-relative path only", async () => {
+    const info = hostInfoRpc.output.strict().parse(await host.invokePluginRpc(PLUGIN_ID, hostInfoRpc.name, {}));
     expect(info.platform).toBe(platforms[key]);
-    expect(info.consent).toEqual({ allowPluginSettingsWrites: false });
     // Only paths below the user's home are reported, and then with "~".
     expect(info.paseoHome).toBe(key === "W" ? "~/mhm-testenv/home-w" : "~/mhm-testenv/home");
-  });
-
-  it("settings.write is capability_disabled without consent", async () => {
-    const read = await call(settingsReadRpc, DUMMY);
-    const result = await call(settingsWriteRpc, { ...DUMMY, expectedRevision: read.ok ? read.revision : "", version: 1, values: {} });
-    expect(result).toMatchObject({ ok: false, code: "capability_disabled" });
   });
 
   it("config.write-keys is not exposed: the hub patches config through config.patch instead", async () => {
@@ -110,8 +99,6 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
   });
 
   describe("plugin settings documents", () => {
-    beforeAll(() => setConsent(files, true));
-
     it("lists the dummy document", async () => {
       const list = await call(settingsListRpc, {});
       expect(list.documents).toContainEqual(expect.objectContaining({ ...DUMMY, hasBackup: false }));
@@ -158,22 +145,22 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
       expect(after.ok && after.revision).toBe(restored.ok && restored.revision);
     });
 
-    it("refuses to write the companion's own consent document and path traversal", async () => {
-      const consentBefore = files.read(COMPANION_SETTINGS);
-      const own = await call(settingsWriteRpc, { pluginId: PLUGIN_ID, settingsId: "companion", expectedRevision: "x", version: 1, values: { allowPluginSettingsWrites: false } });
+    it("refuses to write this plugin's own settings document and path traversal", async () => {
+      const ownBefore = files.read(OWN_SETTINGS);
+      const own = await call(settingsWriteRpc, { pluginId: PLUGIN_ID, settingsId: "broker", expectedRevision: "x", version: 1, values: { allowPrerelease: true } });
       expect(own).toMatchObject({ ok: false, code: "not_allowed" });
-      expect(files.read(COMPANION_SETTINGS)).toBe(consentBefore);
+      expect(files.read(OWN_SETTINGS)).toBe(ownBefore);
       await expect(host.invokePluginRpc(PLUGIN_ID, settingsReadRpc.name, { pluginId: "..", settingsId: "x" })).rejects.toThrow();
     });
 
-    it("refuses the own consent document through case and trailing-dot aliases", async () => {
-      const consentBefore = files.read(COMPANION_SETTINGS);
-      const values = { allowPluginSettingsWrites: true };
-      const cased = await call(settingsWriteRpc, { pluginId: PLUGIN_ID.toUpperCase(), settingsId: "companion", expectedRevision: "missing", version: 1, values });
+    it("refuses the own settings document through case and trailing-dot aliases", async () => {
+      const ownBefore = files.read(OWN_SETTINGS);
+      const values = { allowPrerelease: true };
+      const cased = await call(settingsWriteRpc, { pluginId: PLUGIN_ID.toUpperCase(), settingsId: "broker", expectedRevision: "missing", version: 1, values });
       expect(cased).toMatchObject({ ok: false, code: "not_allowed" });
-      const dotted = { pluginId: `${PLUGIN_ID}.`, settingsId: "companion", expectedRevision: "missing", version: 1, values };
+      const dotted = { pluginId: `${PLUGIN_ID}.`, settingsId: "broker", expectedRevision: "missing", version: 1, values };
       await expect(host.invokePluginRpc(PLUGIN_ID, settingsWriteRpc.name, dotted)).rejects.toThrow();
-      expect(files.read(COMPANION_SETTINGS)).toBe(consentBefore);
+      expect(files.read(OWN_SETTINGS)).toBe(ownBefore);
     });
   });
 });
