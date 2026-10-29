@@ -50,11 +50,12 @@ let redactions = [];
 const redact = (text) => redactions.reduce((t, secret) => t.split(secret).join("***"), text);
 const tail = (text, lines = 15) => redact(text.trim().split("\n").slice(-lines).join("\n"));
 
-const CATEGORIES = ["reach", "list", "RPC", "install/remove/update", "git install", "password", "relay", "idle row", "lockout guards"];
+const CATEGORIES = ["reach", "list", "RPC", "install/remove/update", "git install", "add host", "password", "relay", "idle row", "lockout guards"];
 
 function classify(test) {
   const name = [...test.ancestorTitles, test.title].join(" > ");
   if (test.file.endsWith("git-install.test.ts")) return "git install";
+  if (test.file.endsWith("add-host.test.ts")) return "add host";
   if (/wrong-password/.test(name)) return "password";
   if (/lockout confirmation/.test(name)) return "lockout guards";
   if (/plugin lifecycle/.test(name)) return "install/remove/update";

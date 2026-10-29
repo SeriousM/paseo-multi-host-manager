@@ -1,4 +1,5 @@
 import { once } from "node:events";
+import { unencryptedLink } from "../../shared/connection";
 import type { BrokerPolicy, CapabilitySnapshot, HostResult } from "../../shared/contracts";
 import { capabilitySnapshot, checkGates } from "./capabilities";
 import { connectRoutedClient } from "./daemon-client";
@@ -51,9 +52,8 @@ async function connectAndRun<T>(origin: DaemonClient, host: HostEntry, request: 
  * On timeout the result is `host_offline`, and the routed client and route are closed right away.
  */
 export async function callHost<T>(origin: DaemonClient, host: HostEntry, request: HostRequest<T>): Promise<HostResult<T>> {
-  const unverifiedLink = host.link === "tcp-plain" || host.link === "unknown";
   const allowed = host.registrationId !== null && request.policy.insecureLinkRegistrationIds.includes(host.registrationId);
-  if (unverifiedLink && !allowed) {
+  if (unencryptedLink(host.link) && !allowed) {
     return { ok: false, error: hostFailure("insecure_link") };
   }
   if (host.unavailable) return { ok: false, error: host.unavailable };

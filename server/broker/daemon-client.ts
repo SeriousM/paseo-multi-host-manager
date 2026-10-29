@@ -3,11 +3,12 @@
 import { randomUUID } from "node:crypto";
 import { DaemonAuthenticationError, DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { Logger } from "@getpaseo/client/internal/daemon-client";
-import { createHostChannelTransport, createHostClient } from "@getpaseo/client/node";
+import { createHostChannelTransport, createHostClient, parseHostTarget } from "@getpaseo/client/node";
 import type { HostDirectory, HostSummary } from "@getpaseo/protocol/hosts";
 import type { MutableDaemonConfig, MutableDaemonConfigPatch, PluginListItem, ServerInfoStatusPayload } from "@getpaseo/protocol/messages";
 
-export { DaemonAuthenticationError };
+// parseHostTarget is the daemon's own saved-host grammar; its errors never echo the input.
+export { DaemonAuthenticationError, parseHostTarget };
 export type {
   DaemonClient,
   HostDirectory,

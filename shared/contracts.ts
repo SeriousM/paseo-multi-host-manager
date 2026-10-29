@@ -69,6 +69,39 @@ export const hostsOverviewRpc = defineRpc({
   }),
 });
 
+/** A host as `mhm.hosts.add` reports it: the daemon's status, never its connection. */
+export const addedHostSchema = z.object({
+  /** The host's id in `mhm.grid.load`: its server id once the hub reached it, else the registration id. */
+  id: z.string(),
+  registrationId: z.string(),
+  serverId: z.string().nullable(),
+  label: z.string(),
+  link: linkKindSchema,
+  status: z.enum(["connecting", "online", "offline", "error", "disabled"]),
+  /** Why the hub cannot use the host yet (wrong password, duplicate, offline); null when it is online. */
+  failure: hostFailureSchema.nullable(),
+});
+export type AddedHost = z.infer<typeof addedHostSchema>;
+
+/**
+ * Saves a host on the hub's daemon (`paseo host add`), a direct action, not staged. `connection` goes to the daemon
+ * only; it is never logged, stored by this plugin or returned, and failures carry fixed texts. A connection the hub
+ * would reach unencrypted (`tcp-plain`) needs `allowUnencrypted`, else `insecure_link` with detail `unencrypted_link`;
+ * one Paseo would not accept is `invalid_connection`. Nothing is saved in either case.
+ * The call waits a few seconds for the hub's first connect, so `status` is usually settled.
+ */
+export const hostAddRpc = defineRpc({
+  name: "mhm.hosts.add",
+  input: brokerPolicySchema.extend({
+    connection: z.string().min(1).max(8192),
+    label: z.string().trim().max(80).optional(),
+    allowUnencrypted: z.boolean().default(false),
+  }),
+  output: z.discriminatedUnion("ok", [z.object({ ok: z.literal(true), host: addedHostSchema }), z.object({ ok: z.literal(false), error: hostFailureSchema })]),
+});
+export type HostAddInput = z.input<typeof hostAddRpc.input>;
+export type HostAddResult = z.infer<typeof hostAddRpc.output>;
+
 export const ROW_CELL_STATES = ["ok", "absent", "needs_companion", "needs_newer_paseo", "unreadable", "protected"] as const;
 
 /** One row on one host. `value` is null unless `state` is `ok`; secret-looking strings are already masked. */

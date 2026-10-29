@@ -14,6 +14,9 @@ export const ERROR_CODES = [
   // A malformed item: unknown or read-only row, wrong value type, masked placeholder, directory source,
   // credentials in a source (`credentials_in_source`), this plugin removed or disabled on the hub (`self_target`).
   "invalid_item",
+  // A saved-host connection (Add host) that Paseo would not accept: not a pairing link, relay://, tcp://, ws(s)://,
+  // ssh://, socket path or host:port.
+  "invalid_connection",
   // Any other daemon or call failure; the daemon's own code goes into `detail`.
   "host_error",
 ] as const;

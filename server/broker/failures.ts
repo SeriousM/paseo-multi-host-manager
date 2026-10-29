@@ -14,6 +14,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   confirmation_required: "This change needs the user's confirmation first.",
   lockout_confirmation_required: "This change can cut the hub off from this host. Confirm it first.",
   invalid_item: "This change is not valid for the host.",
+  invalid_connection: "This is not a host connection Paseo accepts. Use a pairing link, relay://, tcp://host:port, ws(s)://, ssh:// or host:port.",
   host_error: "The host operation failed.",
 };
 
