@@ -22,7 +22,7 @@ export type ClipboardEntry =
 type WithoutId<Item> = Item extends unknown ? Omit<Item, "id"> : never;
 export type StageInput = WithoutId<ApplyItem>;
 
-/** `unknown`: the apply response was lost (expected after switching the hub's plugins off); a grid reload shows the truth. */
+/** `unknown`: the apply job's result was lost (the hub stopped answering, or forgot the job); a grid reload shows the truth. */
 export type StagedStatus = "pending" | "applying" | "ok" | "ignored" | "failed" | "skipped" | "unknown";
 
 /**
@@ -33,7 +33,7 @@ export type StagedStatus = "pending" | "applying" | "ok" | "ignored" | "failed" 
 export type Confirmation = "trust" | "destructive" | "lockout";
 
 export interface StagedItem {
-  /** What goes to `mhm.apply`, without `confirmed`: `applyInput` adds it once every required confirmation is given. */
+  /** What goes to `mhm.apply.start`, without `confirmed`: `applyInput` adds it once every required confirmation is given. */
   item: ApplyItem;
   status: StagedStatus;
   /** The last apply outcome; null until the item was applied once. */
@@ -102,6 +102,8 @@ export interface MhmState {
   writtenDocs: WrittenDoc[];
   updateChecks: UpdateCheck[];
   applying: boolean;
+  /** Why the last Apply did not start, or that its result was lost; shown in the drawer until the next Apply. */
+  applyNote: string | null;
   dialog: DialogRequest | null;
   view: ViewMode;
   /** Compact view: host that receives (`into`) and host that is pulled from. */

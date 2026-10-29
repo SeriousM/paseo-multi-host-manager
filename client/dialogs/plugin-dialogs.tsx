@@ -13,7 +13,7 @@ import { installBlocker, parseInstallSource, pluginMenuRules, removeBlocker } fr
 
 /**
  * Rules the dialogs keep:
- * - They stage through `dispatch({ type: "stage", inputs })`; they never call `mhm.apply` themselves.
+ * - They stage through `dispatch({ type: "stage", inputs })`; they never start an apply themselves.
  * - They never offer disabling or removing multi-host-manager on the hub (`stageRefusal` would drop it anyway).
  * - "Edit settings" opens the 8c editor; "Copy to hosts" puts the plugin on the clipboard.
  */

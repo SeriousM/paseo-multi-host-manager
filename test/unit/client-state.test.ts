@@ -363,11 +363,23 @@ describe("staging queue", () => {
     expect(rowCellView(state, "prov", "a")).toMatchObject({ tone: "applied", detail: "applied; ignored: providers.y" });
   });
 
-  it("treats a lost response after switching the hub's plugins off as unknown, other transport errors as failures", () => {
-    const hubOff = run([hub, host("a")], { type: "stage", inputs: [{ op: "setRow", host: "hub", rowId: "pen", value: false }, { op: "setRow", host: "reg-a", rowId: "mcp", value: false }] }, { type: "applyStarted" }, { type: "applyFailed", message: "connection closed" });
-    expect(hubOff.staged.map((entry) => entry.status)).toEqual(["unknown", "unknown"]);
-    const plain = run([hub, host("a")], { type: "stage", inputs: [{ op: "setRow", host: "reg-a", rowId: "mcp", value: false }] }, { type: "applyStarted" }, { type: "applyFailed", message: "timeout" });
-    expect(plain.staged[0]).toMatchObject({ status: "failed", outcome: { status: "failed", error: { message: "timeout" } } });
+  it("stages the items again when the job did not start, and clears the note on the next Apply", () => {
+    const inputs = [{ op: "setRow" as const, host: "reg-a", rowId: "mcp", value: false }];
+    const state = run([hub, host("a")], { type: "stage", inputs }, { type: "applyStarted" }, { type: "applyNotStarted", note: "busy" });
+    expect(state).toMatchObject({ applying: false, applyNote: "busy" });
+    expect(state.staged.map((entry) => entry.status)).toEqual(["pending"]);
+    expect(applyInput(state.staged, policy).items.map((item) => item.id)).toEqual(["reg-a/row:mcp"]);
+    expect(mhmReducer(state, { type: "applyStarted" }).applyNote).toBeNull();
+  });
+
+  it("marks items still applying unknown when the result is lost, keeps settled ones, and Retry skips unknown", () => {
+    const inputs = ["mcp", "sys"].map((rowId) => ({ op: "setRow" as const, host: "reg-a", rowId, value: false }));
+    let state = run([hub, host("a")], { type: "stage", inputs }, { type: "applyStarted" });
+    state = mhmReducer(state, { type: "applyProgress", results: [{ id: "reg-a/row:mcp", host: "reg-a", op: "setRow", outcome: { status: "failed", error: { code: "host_error", message: "boom" } } }] });
+    state = mhmReducer(state, { type: "applyLost", note: "lost" });
+    expect(state).toMatchObject({ applying: false, applyNote: "lost" });
+    expect(state.staged.map((entry) => [entry.status, entry.outcome?.status ?? null])).toEqual([["failed", "failed"], ["unknown", null]]);
+    expect(applyInput(state.staged, policy).items.map((item) => item.id)).toEqual(["reg-a/row:mcp"]);
   });
 
   it("freezes staging while applying and merges results only into items being applied", () => {

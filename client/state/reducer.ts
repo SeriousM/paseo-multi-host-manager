@@ -1,7 +1,7 @@
 import type { ApplyResult } from "../../shared/contracts";
 import { clipFromCell, pasteTargetsInputs, planPaste } from "./clipboard";
 import { orderHosts } from "./grid-model";
-import { confirmItems, hostRef, itemOnHost, markApplying, stageItems, withApplyError, withResults, withUpdateChecks, withWrittenDocs } from "./staging";
+import { confirmItems, hostRef, itemOnHost, markApplying, stageItems, withoutResults, withResults, withUpdateChecks, withWrittenDocs } from "./staging";
 import type { CellRef, ClipboardEntry, Confirmation, DialogRequest, GridHost, MhmState, Selection, StageInput, ViewMode } from "./types";
 
 export type MhmAction =
@@ -29,7 +29,10 @@ export type MhmAction =
   /** Results of the items that settled so far while the apply job runs. */
   | { type: "applyProgress"; results: ApplyResult[] }
   | { type: "applyFinished"; results: ApplyResult[] }
-  | { type: "applyFailed"; message: string }
+  /** The job did not start (hub busy, or the start call failed): nothing ran, the applying items are staged again. */
+  | { type: "applyNotStarted"; note: string }
+  /** The job started but its result was lost: the items still applying become `unknown` and are not resent. */
+  | { type: "applyLost"; note: string }
   /** Drops the applied items; failed, skipped, ignored and unknown ones stay for Retry or removal. */
   | { type: "clearApplied" }
   /** Forgets the "update available" results (Refresh: the user asks for the current state). */
@@ -50,6 +53,7 @@ export const INITIAL_STATE: MhmState = {
   writtenDocs: [],
   updateChecks: [],
   applying: false,
+  applyNote: null,
   dialog: null,
   view: "auto",
   compare: { into: null, from: null },
@@ -129,7 +133,7 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
     case "confirm":
       return state.applying ? state : { ...state, staged: confirmItems(state.staged, action.ids, action.kind) };
     case "applyStarted":
-      return state.applying ? state : { ...state, applying: true, staged: markApplying(state.staged) };
+      return state.applying ? state : { ...state, applying: true, applyNote: null, staged: markApplying(state.staged) };
     case "applyProgress":
       return state.applying ? { ...state, staged: withResults(state.staged, action.results) } : state;
     case "applyFinished":
@@ -140,8 +144,10 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
         writtenDocs: withWrittenDocs(state.writtenDocs, state.staged, action.results),
         updateChecks: withUpdateChecks(state.updateChecks, state.staged, state.hosts, action.results),
       };
-    case "applyFailed":
-      return { ...state, applying: false, staged: withApplyError(state.staged, state.hosts, action.message) };
+    case "applyNotStarted":
+      return { ...state, applying: false, applyNote: action.note, staged: withoutResults(state.staged, "pending") };
+    case "applyLost":
+      return { ...state, applying: false, applyNote: action.note, staged: withoutResults(state.staged, "unknown") };
     case "clearApplied":
       return state.applying ? state : { ...state, staged: state.staged.filter((entry) => entry.status !== "ok") };
     case "clearUpdateChecks":

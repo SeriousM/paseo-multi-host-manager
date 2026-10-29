@@ -5,16 +5,11 @@ import type { Dispatch } from "react";
 import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc } from "../../shared/contracts";
 import type { BrokerPolicy } from "../../shared/contracts";
 import { DEFAULT_POLICY, brokerSettings } from "../../shared/policy";
+import { runApply } from "./apply-run";
 import { INITIAL_STATE, mhmReducer } from "./reducer";
 import type { MhmAction } from "./reducer";
 import { applyInput, nextConfirmation, SENDABLE } from "./staging";
 import type { Confirmation, MhmState } from "./types";
-
-/**
- * How often a running apply is polled. A plugin RPC has 30 s on the daemon, less than an install may take, so Apply
- * starts a job on the hub (`mhm.apply.start`) and polls it (`mhm.apply.poll`) instead of waiting on one call.
- */
-const APPLY_POLL_MS = 1_000;
 
 /** Everything the screen's components get: state, dispatch, and the RPC-backed commands. */
 export interface MhmController {
@@ -27,8 +22,8 @@ export interface MhmController {
   policyNote: string | null;
   grid: { loading: boolean; refreshing: boolean; error: string | null; refresh: () => void };
   /**
-   * Apply button: opens the confirmation dialog that is still missing (lockout, destructive, trust), otherwise sends
-   * the pending, failed and skipped items (`SENDABLE`) to `mhm.apply` and reloads the grid afterwards.
+   * Apply button: opens the confirmation dialog that is still missing (lockout, destructive, trust), otherwise runs the
+   * pending, failed and skipped items (`SENDABLE`) as a job on the hub (`runApply`) and reloads the grid afterwards.
    */
   apply: () => Promise<void>;
   /** Confirmation dialogs call this: marks the items, closes the dialog and continues Apply with the updated queue. */
@@ -75,24 +70,14 @@ export function useMhm(hostId: string): MhmController {
       dispatch({ type: "openDialog", dialog });
       return;
     }
-    dispatch({ type: "applyStarted" });
-    try {
-      const started = await startApply(applyInput(state.staged, policy));
-      if (!started.ok) throw new Error("Another apply is still running on the hub. Wait for it, then retry.");
-      for (;;) {
-        // Executor form on purpose: Promise.withResolvers is ES2024 and not on every React Native engine.
-        await new Promise<void>((resolve) => setTimeout(resolve, APPLY_POLL_MS));
-        const job = await pollApply({ jobId: started.jobId });
-        if (job.state === "unknown") throw new Error("The hub lost this apply (its plugin restarted). Reload the grid to see what changed.");
-        if (job.state === "done") {
-          dispatch({ type: "applyFinished", results: job.results });
-          break;
-        }
-        dispatch({ type: "applyProgress", results: job.results });
-      }
-    } catch (error) {
-      dispatch({ type: "applyFailed", message: message(error) });
-    }
+    await runApply(applyInput(state.staged, policy), {
+      start: startApply,
+      poll: pollApply,
+      dispatch,
+      // Executor form on purpose: Promise.withResolvers is ES2024 and not on every React Native engine.
+      sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+      now: Date.now,
+    });
     void refetch();
   }, [policy, pollApply, refetch, startApply, state.applying, state.staged]);
 

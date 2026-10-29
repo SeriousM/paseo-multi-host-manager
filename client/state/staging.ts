@@ -103,7 +103,7 @@ export function nextConfirmation(staged: readonly StagedItem[]): DialogRequest |
 }
 
 /**
- * Input for `mhm.apply`: the sendable items in staged order (the server orders within a host). `confirmed` is set
+ * Input for `mhm.apply.start`: the sendable items in staged order (the server orders within a host). `confirmed` is set
  * on items whose confirmations were all given; an item without them is rejected by the server.
  */
 export function applyInput(staged: readonly StagedItem[], policy: BrokerPolicy): BrokerPolicy & { items: ApplyItem[] } {
@@ -172,16 +172,11 @@ export function withWrittenDocs(written: readonly WrittenDoc[], staged: readonly
 }
 
 /**
- * The `mhm.apply` call itself failed. When the batch switched relay or plugins off on the hub, a lost response is the
- * expected result (the hub dropped this plugin or its link): items become `unknown` and a grid reload tells. Otherwise
- * the applying items fail with the transport message.
+ * The apply ended without results for the items still applying. `pending`: the job never started (the hub was busy,
+ * or the start call did not get through), so nothing ran and Apply may send them again. `unknown`: the job started but
+ * its result was lost (the poll kept failing, or the hub forgot the job after a plugin restart); the items may have run,
+ * so they are not sent again (`SENDABLE`) until a grid reload shows what changed.
  */
-export function withApplyError(staged: readonly StagedItem[], hosts: readonly GridHost[], message: string): StagedItem[] {
-  const hub = hosts.find((host) => host.isHub);
-  const hubLockout = staged.some((entry) => entry.status === "applying" && entry.requires.includes("lockout") && hub !== undefined && itemOnHost(entry.item.host, hub));
-  return staged.map((entry): StagedItem => {
-    if (entry.status !== "applying") return entry;
-    if (hubLockout) return { ...entry, status: "unknown", outcome: null };
-    return { ...entry, status: "failed", outcome: { status: "failed", error: { code: "host_error", message } } };
-  });
+export function withoutResults(staged: readonly StagedItem[], status: "pending" | "unknown"): StagedItem[] {
+  return staged.map((entry): StagedItem => (entry.status === "applying" ? { ...entry, status, outcome: null } : entry));
 }

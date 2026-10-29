@@ -59,6 +59,7 @@ export function StagingDrawer({ theme, layout, controller }: Pick<MhmSurfaceProp
         <Button theme={theme} label="Discard all" disabled={state.applying} onPress={() => dispatch({ type: "discardAll" })} />
         <Button theme={theme} variant="primary" label={summary.applyLabel} disabled={state.applying || idle} onPress={() => void controller.apply()} />
       </View>
+      {state.applyNote ? <Text style={{ color: colors.statusWarning, fontSize: 11 }}>{state.applyNote}</Text> : null}
       {expanded ? (
         <>
           <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>Applied host by host, in this order, each over its own link. Nothing is written before Apply.</Text>

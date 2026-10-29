@@ -103,7 +103,7 @@ export function statusView(entry: StagedItem, staged: readonly StagedItem[], hos
         : { label: "ok", severity: "ok", detail: done ? okDetail(done) : null };
     }
     case "unknown":
-      return { label: "result lost", severity: "warn", detail: "The hub dropped the connection while applying. Reload the grid to see what changed." };
+      return { label: "result lost", severity: "warn", detail: "Result lost; reload the grid before retrying. The change may or may not have been applied." };
     case "ignored":
       return {
         label: "ignored",
