@@ -171,7 +171,7 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
           </View>
         )}
 
-        {access.ok && load.status === "loading" ? <Note color={colors.foregroundMuted} text="Reading the document..." /> : null}
+        {access.ok && load.status === "loading" ? <Note color={colors.foregroundMuted} text="Reading the settings..." /> : null}
         {access.ok && load.status === "error" ? (
           <View style={{ gap: 6, alignItems: "flex-start" }}>
             <Note color={colors.statusDanger} text={`Could not read the document: ${load.message}`} />
@@ -267,7 +267,7 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
             ) : null}
             {status.phase === "written" ? (
               <>
-                <Note color={colors.foregroundMuted} text="Reloading the plugin makes it read the document. Whether it accepts the values is only visible in the plugin itself." />
+                <Note color={colors.foregroundMuted} text="Reloading the plugin makes it read the document; whether it accepts the values is only visible in the plugin itself." />
                 {staged.reload ? (
                   <Note color={reloadStatus.phase === "failed" ? colors.statusDanger : colors.foregroundMuted} text={staged.reload.status === "ok" ? "Plugin reloaded. Validity is still unverified from here." : staged.reload.status === "pending" ? "Reload staged. It is sent with Apply." : staged.reload.status === "applying" ? "Reloading the plugin..." : reloadStatus.message || "Reload did not finish."} />
                 ) : (

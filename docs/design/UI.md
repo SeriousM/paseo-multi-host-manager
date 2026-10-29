@@ -15,6 +15,7 @@ One reducer, `mhmReducer(state, action)` in `reducer.ts`; pure and unit-tested (
 | `clipboard` | `ClipboardEntry`: row value, plugin (`GridPlugin`) or settings document (values from `mhm.doc.read`), plus `sourceHost`. |
 | `pasteTargets` | Host ids picked for "paste to several hosts". |
 | `staged` | `StagedItem[]`: `item` (an `ApplyItem`), `status`, last `outcome`, `requires` / `confirmed` confirmations. |
+| `writtenDocs` | "Written, validity unknown" markers per host, plugin and document; outlive `clearApplied`, cleared by a successful reload of that plugin or `dismissWritten`. |
 | `applying`, `dialog`, `view`, `compare` | Apply running; open dialog; `auto`/`grid`/`compact`; compact view's "into"/"from" hosts. |
 
 Controller: `state`, `dispatch`, `policy` + `savePolicy` (broker policy, host-scoped settings doc `broker` on the hub,
@@ -27,6 +28,9 @@ Rules baked into the state:
   plugins off on any host, this plugin removed/disabled on a remote). Disabling/removing this plugin on the hub is
   never staged (`stageRefusal`). `apply()` opens the missing confirmation first (lockout, destructive, trust), then
   sends the non-applied items with `confirmed: true` where all were given.
+- Apply and Retry send only `SENDABLE` items (pending, failed, skipped); ignored and unknown ones wait for a reload or removal.
+- Failure texts per code and detail live in `client/state/failure-text.ts` (cells and drawer).
+- Settings documents are never pasted by the grid: the action bar and the clipboard bar open the editor on the target. This plugin's own documents are read-only (the companion refuses remote writes to them).
 - After Apply: per-item `ok` / `ignored` / `failed` / `skipped`; a lost response when the batch switched the hub's
   relay or plugins off becomes `unknown`. The grid reloads after every apply. `clearApplied` drops the `ok` items.
 - `planPaste(state, clipboard, hostId)` (clipboard.ts) says what a paste stages or why not; use it for every paste

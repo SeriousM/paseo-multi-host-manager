@@ -102,7 +102,7 @@ export interface DocPastePlan {
 }
 
 /**
- * Prepares a clipboard document (secrets masked at the source) for the target's own document. A `<masked>` placeholder
+ * Prepares a clipboard document (secrets masked at the source) for the target's own document: a `<masked>` placeholder
  * stays where the target stores a value (it keeps its own); where the target has nothing, the key is dropped.
  * `target` is the target's document from `mhm.doc.read`, null when it has none.
  */
