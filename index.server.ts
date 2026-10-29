@@ -7,6 +7,7 @@ import { registerCompanion } from "./server/companion";
 import { applyItems } from "./server/rpc/apply";
 import { readDoc } from "./server/rpc/doc";
 import { loadGrid } from "./server/rpc/grid";
+import { brokerSettings } from "./client/state/policy";
 
 export default function contribute(server: PluginServerContext) {
   const home = paseoHome();
@@ -16,6 +17,8 @@ export default function contribute(server: PluginServerContext) {
   server.handle(gridLoadRpc, async (policy) => ({ hosts: await loadGrid(origin, home, policy) }));
   server.handle(applyRpc, async ({ items, ...policy }) => ({ results: await applyItems(origin, home, policy, items) }));
   server.handle(docReadRpc, ({ host, pluginId, settingsId, ...policy }) => readDoc(origin, home, policy, { host, pluginId, settingsId }));
+  // Registered so the client can read and save it with useSettings; the server takes the policy from each call.
+  server.registerSettings(brokerSettings);
   registerCompanion(server);
   return () => origin.close();
 }
