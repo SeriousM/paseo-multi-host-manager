@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ApplyResult, GridHostData, GridPlugin } from "../../shared/contracts";
 import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
 import { MASK_PLACEHOLDER } from "../../shared/mask";
-import { clipFromCell, planPaste } from "../../client/state/clipboard";
+import { clipFromCell, compareVersions, planPaste } from "../../client/state/clipboard";
 import { hostSummary, orderHosts, pluginCellView, pluginRows, rowCellView } from "../../client/state/grid-model";
 import { tint } from "../../client/grid/palette";
 import { withInsecureLink } from "../../client/state/policy";
@@ -83,7 +83,8 @@ describe("grid model", () => {
     expect(rowCellView(state, "ver", "hub")).toMatchObject({ text: "0.13.2", readOnly: true, copyable: false });
     expect(rowCellView(state, "sys", "m")).toMatchObject({ text: "masked", masked: true, copyable: false });
     expect(rowCellView(state, "wt", "m").unavailable?.code).toBe("needs_companion");
-    expect(rowCellView(state, "mcp", "o").unavailable).toEqual({ code: "host_offline", message: "Host is offline" });
+    expect(rowCellView(state, "mcp", "o")).toMatchObject({ text: "-", detail: null, unavailable: { code: "host_offline", message: "Host is offline" } });
+    expect(pluginCellView(state, pluginRows(state.hosts)[0], "o")).toMatchObject({ text: "-", detail: null });
   });
 
   it("highlights the source and the cells that differ from it, and previews staged changes", () => {
@@ -167,6 +168,23 @@ describe("clipboard and paste planning", () => {
     const pasted = mhmReducer(state, { type: "pasteTargets" });
     expect(pasted.staged).toEqual([]);
     expect(pasted.pasteTargets).toEqual([]);
+  });
+
+  it("copies masked providers (the target keeps its own secrets) but no other masked value", () => {
+    const prov = { state: "ok" as const, value: { claude: { options: { apiKey: MASK_PLACEHOLDER } } }, maskedPaths: ["claude.options.apiKey"] };
+    const state = run([host("hub", { isHub: true, data: data({ rows: { prov } }) })]);
+    expect(rowCellView(state, "prov", "hub")).toMatchObject({ copyable: true, masked: true, detail: "secrets masked; each host keeps its own" });
+  });
+
+  it("updates an older target, refuses a newer one, and compares versions like semver", () => {
+    const source = plugin("keep", { version: "1.2.0" });
+    const older = host("a", { data: data({ plugins: [plugin("keep", { version: "1.1.9" })] }) });
+    const newer = host("b", { data: data({ plugins: [plugin("keep", { version: "1.10.0" })] }) });
+    const state = run([host("hub", { isHub: true, data: data({ plugins: [source] }) }), older, newer]);
+    const clip = { kind: "plugin" as const, pluginId: "keep", sourceHost: "hub", plugin: source };
+    expect(planPaste(state, clip, "a")).toMatchObject({ ok: true, inputs: [{ op: "updatePlugin" }] });
+    expect(planPaste(state, clip, "b")).toEqual({ ok: false, same: false, reason: "target is newer" });
+    expect([compareVersions("1.0.0-beta.2", "1.0.0-beta.10"), compareVersions("1.0.0-beta.2", "1.0.0"), compareVersions("v2.0.0", "2.0.0"), compareVersions("abc1234", "1.0.0")]).toEqual([-1, -1, 0, null]);
   });
 
   it("refuses a directory plugin that no host can hand on", () => {

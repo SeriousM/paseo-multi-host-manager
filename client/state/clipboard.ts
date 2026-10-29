@@ -28,6 +28,25 @@ export function clipFromCell(state: Pick<MhmState, "hosts">, ref: CellRef): Clip
   return null;
 }
 
+/**
+ * Orders two plugin versions: -1 when `a` is older, 1 when newer, 0 when equal, null when they cannot be compared
+ * (git or registry revisions, a missing version). Semver cores first; a pre-release sorts before its release.
+ */
+export function compareVersions(a: string | null, b: string | null): -1 | 0 | 1 | null {
+  const parse = (version: string | null) => (version ? /^v?(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?(?:\+.*)?$/.exec(version) : null);
+  const left = parse(a);
+  const right = parse(b);
+  if (!left || !right) return null;
+  for (let i = 1; i <= 3; i++) {
+    const diff = Number(left[i]) - Number(right[i]);
+    if (diff !== 0) return diff < 0 ? -1 : 1;
+  }
+  if (left[4] === right[4]) return 0;
+  if (left[4] === undefined) return 1;
+  if (right[4] === undefined) return -1;
+  return left[4].localeCompare(right[4], "en", { numeric: true }) < 0 ? -1 : 1;
+}
+
 /** Result of pasting the clipboard onto one host: the items to stage, or why not (`same`: nothing would change). */
 export type PastePlan = { ok: true; inputs: StageInput[]; note: string } | { ok: false; same: boolean; reason: string };
 
@@ -76,9 +95,12 @@ function pastePlugin(state: Pick<MhmState, "hosts" | "staged">, clip: Extract<Cl
   }
   const inputs: StageInput[] = [];
   const notes: string[] = [];
+  const order = compareVersions(current.version, clip.plugin.version);
+  // An update installs the newest release, never an older one: a target ahead of the source is left alone.
+  if (order === 1) return refuse("target is newer");
   if (current.version !== clip.plugin.version && current.source.kind !== "directory" && hasFeature(target, "pluginSourceUpdates")) {
     inputs.push({ op: "updatePlugin", host, pluginId: clip.pluginId });
-    notes.push(`update from ${current.version ?? "?"} to the newest release`);
+    notes.push(order === -1 ? `update from ${current.version ?? "?"} to the newest release` : "update to the newest release (revisions cannot be compared)");
   }
   const selfOff = target.isHub && clip.pluginId === OWN_PLUGIN_ID && !clip.plugin.enabled;
   if (current.enabled !== clip.plugin.enabled && !selfOff) {
