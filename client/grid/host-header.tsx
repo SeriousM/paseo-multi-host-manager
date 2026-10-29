@@ -6,7 +6,7 @@ import type { GridHost } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
 import { font, severityColor, SIZES, tint, TYPE } from "./palette";
 import type { Severity } from "./palette";
-import { Badge } from "./primitives";
+import { Badge, Button } from "./primitives";
 
 const LINK_BADGE: Record<LinkKind, [Severity, string]> = {
   relay: ["ok", "relay E2EE"],
@@ -35,6 +35,8 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
   const differ = baseline && !isBaseline && host.result.ok && baseline.result.ok ? differenceCount(state, host.id) : null;
   const selected = state.selection?.kind === "host" && state.selection.hostId === host.id;
   const [linkSeverity, linkLabel] = LINK_BADGE[summary.link];
+  // A saved host the hub cannot sign in to: offer the password right where the error shows.
+  const needsPassword = !host.isHub && summary.failure?.code === "authentication_failed";
   return (
     <Pressable
       accessibilityRole="button"
@@ -73,9 +75,14 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
         {summary.companion ? <Badge theme={theme} label={COMPANION_BADGE[summary.companion][1]} severity={COMPANION_BADGE[summary.companion][0]} /> : null}
       </View>
       {summary.failure ? (
-        <Text numberOfLines={2} style={{ color: severityColor(theme, "bad"), ...font(TYPE.secondary) }}>
+        <Text numberOfLines={needsPassword ? 1 : 2} style={{ color: severityColor(theme, "bad"), ...font(TYPE.secondary) }}>
           {summary.failure.message}
         </Text>
+      ) : null}
+      {needsPassword ? (
+        <View style={{ flexDirection: "row" }}>
+          <Button theme={theme} label="Set password..." disabled={state.applying} onPress={() => controller.dispatch({ type: "openDialog", dialog: { kind: "setPassword", hostId: host.id } })} />
+        </View>
       ) : null}
     </Pressable>
   );

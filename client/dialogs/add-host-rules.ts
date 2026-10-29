@@ -1,13 +1,17 @@
-import { connectionLink, unencryptedLink } from "../../shared/connection";
-import type { HostFailure, LinkKind } from "../../shared/contracts";
+import { connectionLink, socketPath, unencryptedLink } from "../../shared/connection";
+import type { AddedHost, HostFailure, LinkKind } from "../../shared/contracts";
 import type { Severity } from "../grid/palette";
 import { failureText } from "../state/failure-text";
+import { findHost } from "../state/grid-model";
+import type { MhmState } from "../state/types";
 
 export const LABEL_MAX = 80;
 
 export interface AddHostForm {
   connection: string;
   label: string;
+  /** Daemon password of the other host; empty for none. */
+  password: string;
   /** The "I understand this link is not encrypted" checkbox. */
   unencryptedConfirmed: boolean;
   /** The hub refused this text as unencrypted, so the checkbox shows whatever the local hint said. */
@@ -42,6 +46,9 @@ export function addHostView(form: AddHostForm): AddHostView {
   if (link === null) {
     return { link, note: "Not a connection Paseo accepts. Use a pairing link, relay://, tcp://host:port, ws(s)://, ssh:// or host:port.", severity: "bad", needsConfirm: false, canAdd: false };
   }
+  if (form.password !== "" && socketPath(text)) {
+    return { link, note: "A socket path cannot carry a daemon password. Leave the password empty.", severity: "bad", needsConfirm: false, canAdd: false };
+  }
   const needsConfirm = form.hubAskedConfirm || unencryptedLink(link);
   const [severity, note] = LINK_NOTE[link];
   return {
@@ -51,6 +58,34 @@ export function addHostView(form: AddHostForm): AddHostView {
     needsConfirm,
     canAdd: labelOk && (!needsConfirm || form.unencryptedConfirmed),
   };
+}
+
+export interface SetPasswordView extends AddHostView {
+  label: string;
+  registrationId: string | null;
+  /** Why the dialog cannot save right now (the hub, an apply running); null when it can. */
+  blocked: string | null;
+}
+
+/** Set password needs the link again (the daemon never gives a saved connection back) and a non-empty password. */
+export function setPasswordView(state: MhmState, hostId: string, form: Omit<AddHostForm, "label">): SetPasswordView | null {
+  const host = findHost(state, hostId);
+  if (!host) return null;
+  const link = addHostView({ ...form, label: "" });
+  const blocked =
+    host.isHub || host.registrationId === null
+      ? "The hub reaches its own daemon without a password."
+      : state.applying
+        ? "An apply is running. Set the password after it finished."
+        : null;
+  return { ...link, label: host.label, registrationId: host.registrationId, blocked, canAdd: link.canAdd && form.password !== "" && blocked === null };
+}
+
+/** What the dialog says after a save: whether the hub now reaches the host, else why not (fixed texts). */
+export function reachText(host: AddedHost): { ok: boolean; text: string } {
+  if (host.status === "online") return { ok: true, text: `Saved. The hub reaches ${host.label} now.` };
+  if (host.status === "connecting") return { ok: false, text: `Saved. The hub is still connecting to ${host.label}; the grid shows the result.` };
+  return { ok: false, text: `Saved, but the hub cannot use ${host.label}. ${host.failure ? failureText(host.failure) : `Its status is ${host.status}.`}` };
 }
 
 /** Text for a failed add. The hub's insecure-link refusal points at the checkbox instead of the capabilities dialog. */

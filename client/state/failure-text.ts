@@ -25,6 +25,9 @@ const HOST_ERROR_TEXT: Record<string, string> = {
   source_conflict: "The hub already has this registration. Refresh the grid.",
   permission_denied: "The hub's daemon does not allow this plugin to change its saved hosts.",
   host_unknown: "The hub no longer has this saved host. Refresh the grid.",
+  server_id_mismatch: "This link reaches a different daemon than the one saved for this host. Use this host's own link, or remove the host and add it again.",
+  duplicate_host: "Another saved host already reaches this daemon. Remove one of them.",
+  self_host: "This link reaches the hub itself.",
 };
 
 const CAPABILITY_DISABLED_TEXT: Record<string, string> = {
@@ -50,6 +53,8 @@ export function failureText(error: HostFailure, currentRevision?: string): strin
       const text = HOST_ERROR_TEXT[detail] ?? (detail ? `${error.message} (${detail})` : error.message);
       return currentRevision ? `${text} Current revision: ${currentRevision}.` : text;
     }
+    case "invalid_connection":
+      return detail === "password_unsupported" ? "This kind of link cannot carry a daemon password. Leave the password empty or use the host's relay or tcp link." : error.message;
     case "insecure_link":
       return "The link to this host is not known to be encrypted. Allow it in the host's capabilities.";
     default:

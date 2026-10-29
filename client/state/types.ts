@@ -88,7 +88,9 @@ export type DialogRequest =
   /** Save a new host on the hub (a direct action, not staged). */
   | { kind: "addHost" }
   /** Remove a saved host from the hub (a direct action, not staged; destructive confirmation). */
-  | { kind: "removeHost"; hostId: string };
+  | { kind: "removeHost"; hostId: string }
+  /** Set a saved host's daemon password (its link again plus the password; direct, not staged). */
+  | { kind: "setPassword"; hostId: string };
 
 export type ViewMode = "auto" | "grid" | "compact";
 

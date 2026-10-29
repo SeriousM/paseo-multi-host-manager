@@ -85,3 +85,23 @@ export function Field({ theme, value, onChangeText, placeholder, invalid = false
     />
   );
 }
+
+/** A password field for links and daemon passwords: hidden, never autofilled or corrected. */
+export function SecretField({ theme, value, onChangeText, placeholder, label, invalid = false }: { theme: PluginTheme; value: string; onChangeText: (text: string) => void; placeholder: string; label: string; invalid?: boolean }) {
+  const { colors } = theme;
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={colors.foregroundMuted}
+      secureTextEntry
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete="off"
+      textContentType="none"
+      accessibilityLabel={label}
+      style={{ borderWidth: 1, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 9, color: colors.foreground, backgroundColor: colors.surface2, borderColor: invalid ? colors.statusDanger : colors.border, ...MONO, ...font(TYPE.mono) }}
+    />
+  );
+}

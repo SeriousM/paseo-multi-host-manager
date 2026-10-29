@@ -5,6 +5,7 @@ import { CapabilitiesDialog } from "./capabilities-dialog";
 import { ConfirmDialog } from "./confirm-dialog";
 import { InstallDialog, PluginMenuDialog, RemoveDialog } from "./plugin-dialogs";
 import { RemoveHostDialog } from "./remove-host-dialog";
+import { SetPasswordDialog } from "./set-password-dialog";
 
 /** Renders the dialog `state.dialog` names. Open one with `dispatch({ type: "openDialog", dialog })`. */
 export function DialogHost(props: MhmSurfaceProps) {
@@ -31,5 +32,7 @@ export function DialogHost(props: MhmSurfaceProps) {
       return <AddHostDialog {...common} />;
     case "removeHost":
       return <RemoveHostDialog {...common} hostId={dialog.hostId} />;
+    case "setPassword":
+      return <SetPasswordDialog {...common} hostId={dialog.hostId} />;
   }
 }

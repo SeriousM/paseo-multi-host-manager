@@ -3,13 +3,13 @@ import type { CellTone } from "../state/grid-model";
 
 /**
  * Fixed row heights keep the label column aligned with the host columns; they follow from TYPE (two text lines plus
- * padding for a row, five for a host header). Column widths come from `gridLayout`.
+ * padding for a row, five for a host header, or four plus a button). Column widths come from `gridLayout`.
  */
 export const SIZES = {
   labelWidth: 290,
   minColumnWidth: 220,
   maxColumnWidth: 420,
-  headerHeight: 150,
+  headerHeight: 160,
   sectionHeight: 36,
   rowHeight: 76,
   pluginRowHeight: 84,

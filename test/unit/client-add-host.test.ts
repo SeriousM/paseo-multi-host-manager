@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addFailureText, addHostView } from "../../client/dialogs/add-host-rules";
+import { addFailureText, addHostView, reachText, setPasswordView } from "../../client/dialogs/add-host-rules";
 import { removeFailureText, removeHostView } from "../../client/dialogs/remove-host-rules";
 import type { AddHostForm } from "../../client/dialogs/add-host-rules";
 import { gridLayout, hubOnly, PANEL_MIN_WIDTH } from "../../client/grid/layout";
@@ -7,7 +7,7 @@ import { SIZES } from "../../client/grid/palette";
 import { INITIAL_STATE, mhmReducer } from "../../client/state/reducer";
 import type { GridHost, MhmState, StagedItem } from "../../client/state/types";
 
-const form = (connection: string, extra: Partial<AddHostForm> = {}): AddHostForm => ({ connection, label: "", unencryptedConfirmed: false, hubAskedConfirm: false, ...extra });
+const form = (connection: string, extra: Partial<AddHostForm> = {}): AddHostForm => ({ connection, label: "", password: "", unencryptedConfirmed: false, hubAskedConfirm: false, ...extra });
 
 describe("add host dialog", () => {
   it("allows Add for an encrypted link without the confirmation", () => {
@@ -155,5 +155,40 @@ describe("remove saved host", () => {
   it("explains the hub refusal and keeps the fixed failure texts", () => {
     expect(removeFailureText({ code: "invalid_item", message: "m", detail: "self_target" })).toBe("The hub cannot remove itself.");
     expect(removeFailureText({ code: "invalid_item", message: "m", detail: "unknown_host" })).toContain("Refresh the grid");
+  });
+});
+
+describe("daemon password", () => {
+  const hub = host("srv_hub", { isHub: true });
+  const w = host("srv_w", { registrationId: "reg_w", ok: false });
+  const state = mhmReducer(INITIAL_STATE, { type: "gridLoaded", hosts: [hub, w] });
+  const secret = (connection: string, extra: Partial<AddHostForm> = {}) => ({ connection, password: "pw", unencryptedConfirmed: false, hubAskedConfirm: false, ...extra });
+
+  it("lets Add take a password for any link but a socket path", () => {
+    expect(addHostView(form("relay://relay.example:443/srv?key=k", { password: "pw" }))).toMatchObject({ canAdd: true });
+    expect(addHostView(form("unix:///tmp/paseo.sock", { password: "pw" }))).toMatchObject({ canAdd: false, severity: "bad" });
+    expect(addHostView(form("unix:///tmp/paseo.sock"))).toMatchObject({ canAdd: true });
+  });
+
+  it("needs the link again and a password, and keeps the unencrypted confirmation", () => {
+    expect(setPasswordView(state, "srv_w", secret("relay://relay.example:443/srv_w?key=k"))).toMatchObject({ label: "srv_w", registrationId: "reg_w", canAdd: true, blocked: null });
+    expect(setPasswordView(state, "srv_w", secret("relay://relay.example:443/srv_w?key=k", { password: "" }))?.canAdd).toBe(false);
+    expect(setPasswordView(state, "srv_w", secret(""))?.canAdd).toBe(false);
+    expect(setPasswordView(state, "srv_w", secret("10.0.0.5:6767"))).toMatchObject({ needsConfirm: true, canAdd: false });
+    expect(setPasswordView(state, "srv_w", secret("10.0.0.5:6767", { unencryptedConfirmed: true }))?.canAdd).toBe(true);
+  });
+
+  it("is not offered on the hub or while an apply runs", () => {
+    expect(setPasswordView(state, "srv_hub", secret("6767"))).toMatchObject({ canAdd: false, blocked: expect.stringContaining("without a password") });
+    expect(setPasswordView({ ...state, applying: true }, "srv_w", secret("relay://relay.example:443/srv_w?key=k"))).toMatchObject({ canAdd: false, blocked: expect.stringContaining("apply is running") });
+  });
+
+  it("says whether the hub reaches the host after the save", () => {
+    const saved = { id: "srv_w", registrationId: "reg_w", serverId: "srv_w", label: "laptop", link: "relay" as const };
+    expect(reachText({ ...saved, status: "online", failure: null })).toEqual({ ok: true, text: "Saved. The hub reaches laptop now." });
+    const wrong = reachText({ ...saved, status: "error", failure: { code: "authentication_failed", message: "The hub could not authenticate to this host. Check the saved host's password." } });
+    expect(wrong.ok).toBe(false);
+    expect(wrong.text).toContain("could not authenticate");
+    expect(reachText({ ...saved, status: "error", failure: { code: "host_error", message: "m", detail: "duplicate_host" } }).text).toContain("Another saved host");
   });
 });
