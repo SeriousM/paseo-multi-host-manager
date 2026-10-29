@@ -48,7 +48,7 @@ export const brokerPolicySchema = z.object({
 export type BrokerPolicy = z.infer<typeof brokerPolicySchema>;
 
 export const hostsOverviewRpc = defineRpc({
-  name: "hosts.overview",
+  name: "mhm.hosts.overview",
   input: brokerPolicySchema,
   output: z.object({
     hosts: z.array(
