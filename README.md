@@ -54,7 +54,8 @@ The compact view for narrow screens, and adding a host to the hub from its pairi
   and what they block, the link type, and whether the companion is installed.
 - A compact view for phones that compares two hosts row by row.
 - "Add host..." saves a host on the hub from its pairing link, so you do not need a terminal on the
-  hub for it.
+  hub for it. A pairing link has no password: give the daemon password in the dialog, or later with
+  "Set password..." on a host the hub cannot sign in to (Paseo keeps it inside the saved connection).
 
 ## How it works
 

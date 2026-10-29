@@ -62,6 +62,11 @@ server refuses it without `allowUnencrypted` (`insecure_link` / `unencrypted_lin
 controller adds its registration id to the policy's `insecureLinkRegistrationIds`, the same allowance the capabilities
 dialog gives a saved host. On success: `hostAdded`, grid reload, the new column selected. The server waits up to 10 s
 for the hub's first connect, so the returned status is usually `online` or the reason it is not.
+"Set password..." (host action bar, and in the header of a host failing with `authentication_failed`) asks for the
+link again plus the daemon password: Paseo keeps the password only inside the saved connection (the `password`
+parameter; a pairing URL becomes the relay URI Paseo writes, `server/broker/connection-password.ts`) and never returns a
+saved connection, so `mhm.hosts.password` replaces it via `updateHost`; identity and label stay. Add host takes the same
+optional password. Both dialogs stay open with the result of the hub's reconnect (`reachText`).
 "Remove saved host..." (host action bar, not on the hub, disabled while applying) is the counterpart:
 `mhm.hosts.remove` removes the hub's saved entry without contacting the host, so it works for a wrong password or a
 host that is gone. Its dialog (`remove-host-dialog.tsx`, rules in `remove-host-rules.ts`) needs a ticked confirmation
