@@ -52,12 +52,13 @@ function isOwnDocument(home: string, pluginId: string, file: string): boolean {
   );
 }
 
-function parseDocument(bytes: Buffer): { version: number; values: Json } | null {
+/** `fields` is the whole top-level object, so a rewrite can keep members other than version/values. */
+function parseDocument(bytes: Buffer): { fields: { [key: string]: Json }; version: number; values: Json } | null {
   try {
     const parsed: Json = JSON.parse(bytes.toString("utf8"));
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const { version, values } = parsed;
-    return typeof version === "number" && values !== undefined ? { version, values } : null;
+    return typeof version === "number" && values !== undefined ? { fields: parsed, version, values } : null;
   } catch {
     return null;
   }
@@ -136,7 +137,8 @@ export async function writeSettings(
   if (restored.unresolvedPaths.length > 0) {
     return failure("invalid_input", `Masked placeholder without an existing value at: ${restored.unresolvedPaths.join(", ")}`);
   }
-  const next = Buffer.from(`${JSON.stringify({ version: input.version, values: restored.value }, null, 2)}\n`, "utf8");
+  const document = { ...existing?.fields, version: input.version, values: restored.value };
+  const next = Buffer.from(`${JSON.stringify(document, null, 2)}\n`, "utf8");
   if (before !== null) atomicWrite(`${located.file}.bak`, before);
   atomicWrite(located.file, next);
   return { ok: true, revision: revisionOf(next), keptMaskedPaths: restored.keptPaths, backedUp: before !== null };

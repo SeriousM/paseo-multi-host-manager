@@ -162,6 +162,12 @@ describe("plugin settings documents", () => {
     expect(await writeSettings(ctx, { pluginId: "a", settingsId: "b", expectedRevision: "missing", version: 1, values: {} })).toMatchObject({ ok: true });
   });
 
+  it("keeps unknown top-level fields of the existing document and replaces only version and values", async () => {
+    const revision = writeSettingsFile("other-plugin", "main", { $schema: "s", version: 1, values: { a: 1 }, meta: { by: "x" } });
+    expect(await writeSettings(ctx, { ...ref, expectedRevision: revision, version: 2, values: { a: 2 } })).toMatchObject({ ok: true });
+    expect(JSON.parse(fs.readFileSync(settingsFile("other-plugin", "main"), "utf8"))).toEqual({ $schema: "s", version: 2, values: { a: 2 }, meta: { by: "x" } });
+  });
+
   it("writes atomically with a backup, then restores it", async () => {
     const first = writeSettingsFile("other-plugin", "main", { version: 1, values: { a: 1 } });
     const written = await writeSettings(ctx, { ...ref, expectedRevision: first, version: 1, values: { a: 2 } });
