@@ -53,9 +53,9 @@ describe("consent defaults", () => {
 });
 
 describe("hostInfo", () => {
-  it("reports platform data and a home-relative path only", () => {
+  it("reports platform, arch and a home-relative path only, no OS release or Node version", () => {
     const info = hostInfo(path.join(os.homedir(), ".paseo"), consent);
-    expect(info).toMatchObject({ platform: process.platform, arch: process.arch, osRelease: os.release(), paseoHome: "~/.paseo" });
+    expect(info).toEqual({ platform: process.platform, arch: process.arch, paseoHome: "~/.paseo", consent });
     expect(hostInfo(home, consent).paseoHome).toBeNull();
   });
 });

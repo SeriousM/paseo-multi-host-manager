@@ -29,8 +29,6 @@ export function hostInfo(home: string, consent: Consent): HostInfo {
   return {
     platform: process.platform,
     arch: process.arch,
-    osRelease: os.release(),
-    nodeVersion: process.version,
     paseoHome: underHome ? `~/${relative.split(path.sep).join("/")}` : null,
     consent,
   };

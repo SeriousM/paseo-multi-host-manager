@@ -49,8 +49,6 @@ export const hostInfoRpc = defineRpc({
   output: z.object({
     platform: z.string(),
     arch: z.string(),
-    osRelease: z.string(),
-    nodeVersion: z.string(),
     paseoHome: z.string().nullable(),
     consent: consentSchema,
   }),

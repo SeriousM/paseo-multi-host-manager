@@ -48,10 +48,12 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     await hub?.close();
   });
 
-  it("host.info reports the platform and no consent", async () => {
-    const info = await call(hostInfoRpc, {});
+  it("host.info reports platform and arch only, and no consent", async () => {
+    const raw = await host.invokePluginRpc(PLUGIN_ID, hostInfoRpc.name, {});
+    expect(Object.keys(raw as object).sort()).toEqual(["arch", "consent", "paseoHome", "platform"]);
+    const info = hostInfoRpc.output.parse(raw);
     expect(info.platform).toBe(platforms[key]);
-    expect(info.consent).toMatchObject({ allowPluginSettingsWrites: false });
+    expect(info.consent).toEqual({ allowPluginSettingsWrites: false });
     // Only paths below the user's home are reported, and then with "~"; W's home lives in the repo.
     expect(info.paseoHome).toBe(key === "W" ? null : "~/mhm-testenv/home");
   });
