@@ -11,6 +11,7 @@ Every capability tier lists the exact files and APIs involved. Nothing is sent a
 - Uses `@getpaseo/client/node`, `openHostRoute` and the daemon client methods the CLI uses to list plugins, read config and manage plugins on saved hosts. The `@getpaseo/client/internal/daemon-client` import is isolated in `server/broker/daemon-client.ts`. This is an internal API and may change between Paseo releases.
 - Never reads `hosts.json`. Connection strings and targets are never logged beyond a scheme classification.
 - Reads `daemon.listen`, `worktrees.root` and `log.console.level` from `config.json` on each host for display. These need a restart, so the plugin never writes them; every other setting is changed through the daemon's own `config.patch`. The plugin never writes `config.json`.
+- Reads the settings documents of other plugins in `plugin-settings/` on each host, with secret-looking values replaced by `<masked>` (by key name such as `token`, `password`, `dsn`, `connectionString`, and by value shape such as API key prefixes, bearer tokens and URLs with a user or password). This read needs no opt-in.
 
 ### Tier B: plugin settings writes (off by default, per target host)
 - Setting `allowPluginSettingsWrites` lets the plugin on that host write the settings documents of other plugins in `plugin-settings/`, with a backup, secret masking and a preview.

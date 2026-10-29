@@ -18,15 +18,22 @@ describe("maskJson", () => {
     expect(maskedPaths).toEqual(["apiKey", "nested.password", "nested.Authorization", "tokens.list[0]", "tokens.list[1]"]);
   });
 
-  it.each(["sk-abc123", "ghp_abc", "gho_abc", "github_pat_abc", "xoxb-1-2", "xoxa-1", "xoxp-1", "AKIAIOSFODNN7EXAMPLE", "Bearer abc.def", "bearer abc", "$2b$10$abcdefghij"])(
+  it.each([
+    "sk-abc123", "ghp_abc", "gho_abc", "github_pat_abc", "xoxb-1-2", "xoxa-1", "xoxp-1", "AKIAIOSFODNN7EXAMPLE", "Bearer abc.def", "bearer abc", "$2b$10$abcdefghij",
+    "postgres://app:pw@db.internal:5432/main", "https://ghp_token@github.com/o/r.git", "redis://:pw@cache:6379", "mongodb+srv://u:p@cluster.example/db",
+  ])(
     "masks the value %s under an innocent key",
     (secret) => {
       expect(maskJson({ note: secret }).value).toEqual({ note: MASK_PLACEHOLDER });
     },
   );
 
-  it("keeps ordinary strings, empty strings and non-strings", () => {
-    const input: Json = { note: "hello", token: "", flag: true, none: null, n: 1 };
+  it.each(["dsn", "sentryDsn", "connectionString", "connString", "connectionUri", "databaseConnectionUrl", "connUrl"])("masks values under the key %s", (key) => {
+    expect(maskJson({ [key]: "anything" }).value).toEqual({ [key]: MASK_PLACEHOLDER });
+  });
+
+  it("keeps ordinary strings, URLs without userinfo, empty strings and non-strings", () => {
+    const input: Json = { note: "hello", url: "https://example.com/a@b", mail: "me@example.com", token: "", flag: true, none: null, n: 1 };
     expect(maskJson(input)).toEqual({ value: input, maskedPaths: [] });
   });
 });

@@ -2,16 +2,18 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 
 export const MASK_PLACEHOLDER = "<masked>";
 
-const SECRET_KEY = /token|key|secret|pass|auth|credential|bearer|cookie|private/i;
+const SECRET_KEY = /token|key|secret|pass|auth|credential|bearer|cookie|private|dsn|conn(ection)?(string|uri|url)?/i;
 const SECRET_VALUE = /^(sk-|ghp_|gho_|github_pat_|xox[abp]-|AKIA|eyJ[\w-]+\.|\$2[aby]\$)/;
 const BEARER_VALUE = /^bearer\s+\S/i;
+// URL with userinfo (`scheme://user:pass@host`, `https://token@host`): the credential sits before the `@`.
+const USERINFO_URL = /^[a-z][a-z0-9+.-]*:\/\/[^/@\s]+@/i;
 
 /** Replaces secret-looking strings (by key name or by value shape) with MASK_PLACEHOLDER. */
 export function maskJson(value: Json): { value: Json; maskedPaths: string[] } {
   const maskedPaths: string[] = [];
   const walk = (node: Json, path: string, secretKey: boolean): Json => {
     if (typeof node === "string") {
-      if (node !== "" && (secretKey || SECRET_VALUE.test(node) || BEARER_VALUE.test(node))) {
+      if (node !== "" && (secretKey || SECRET_VALUE.test(node) || BEARER_VALUE.test(node) || USERINFO_URL.test(node))) {
         maskedPaths.push(path);
         return MASK_PLACEHOLDER;
       }
