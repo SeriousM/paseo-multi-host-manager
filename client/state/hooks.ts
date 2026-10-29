@@ -23,6 +23,8 @@ export interface MhmController {
   policy: BrokerPolicy;
   /** Saves the policy document on the hub; the grid reloads with it. Resolves false on a conflict or invalid values. */
   savePolicy: (next: BrokerPolicy) => Promise<boolean>;
+  /** Why the defaults are in use although a policy document exists (saved by a newer version, unreadable); else null. */
+  policyNote: string | null;
   grid: { loading: boolean; refreshing: boolean; error: string | null; refresh: () => void };
   /**
    * Apply button: opens the confirmation dialog that is still missing (lockout, destructive, trust), otherwise sends
@@ -47,6 +49,8 @@ export function useMhm(hostId: string): MhmController {
   const readDoc = useRpc(docReadRpc);
   const settings = useSettings(brokerSettings);
   const policy = settings.status === "ready" ? settings.values : DEFAULT_POLICY;
+  const policyNote =
+    settings.status === "invalid" ? "Policy reset: saved by a newer version" : settings.status === "error" ? `Policy could not be read (${settings.error}); defaults in use` : null;
   const [state, dispatch] = useReducer(mhmReducer, INITIAL_STATE);
 
   const grid = useQuery({
@@ -132,6 +136,7 @@ export function useMhm(hostId: string): MhmController {
     dispatch,
     policy,
     savePolicy,
+    policyNote,
     grid: { loading: grid.isPending, refreshing: grid.isFetching, error: grid.error ? message(grid.error) : null, refresh },
     apply,
     confirm,

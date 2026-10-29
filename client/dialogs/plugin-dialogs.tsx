@@ -35,6 +35,8 @@ export function PluginMenuDialog({ theme, controller, onClose, pluginId, hostId 
     onClose();
   };
   const base = { host: hostRef(host), pluginId };
+  // The queue is frozen while an apply runs; say so instead of buttons that do nothing.
+  const busy = state.applying ? "An apply is running; stage after it finished." : null;
 
   return (
     <DialogFrame theme={theme} title={`${plugin.name ?? pluginId} on ${host.label}`} onClose={onClose}>
@@ -69,14 +71,14 @@ export function PluginMenuDialog({ theme, controller, onClose, pluginId, hostId 
           <MenuButton
             theme={theme}
             label={plugin.enabled ? "Disable plugin" : "Enable plugin"}
-            note={rules.manage}
-            disabled={rules.manage !== null}
+            note={rules.manage ?? busy}
+            disabled={rules.manage !== null || busy !== null}
             onPress={() => stage({ op: "setPluginEnabled", ...base, enabled: !plugin.enabled })}
           />
         )}
-        <MenuButton theme={theme} label="Check for update" note={rules.update ?? "Applies as a check only; the result shows in the staged list."} disabled={rules.update !== null} onPress={() => stage({ op: "updatePlugin", ...base, checkOnly: true })} />
-        <MenuButton theme={theme} label="Update to the newest release" note={rules.update} disabled={rules.update !== null} onPress={() => stage({ op: "updatePlugin", ...base })} />
-        <MenuButton theme={theme} label="Reload plugin" note={rules.manage} disabled={rules.manage !== null} onPress={() => stage({ op: "reloadPlugin", ...base })} />
+        <MenuButton theme={theme} label="Check for update" note={rules.update ?? busy ?? "Applies as a check only; the result shows in the staged list."} disabled={rules.update !== null || busy !== null} onPress={() => stage({ op: "updatePlugin", ...base, checkOnly: true })} />
+        <MenuButton theme={theme} label="Update to the newest release" note={rules.update ?? busy} disabled={rules.update !== null || busy !== null} onPress={() => stage({ op: "updatePlugin", ...base })} />
+        <MenuButton theme={theme} label="Reload plugin" note={rules.manage ?? busy} disabled={rules.manage !== null || busy !== null} onPress={() => stage({ op: "reloadPlugin", ...base })} />
         {rules.selfOnHub ? (
           <Note theme={theme}>multi-host-manager runs this view on the hub. It cannot be disabled or removed from here.</Note>
         ) : (
@@ -84,8 +86,8 @@ export function PluginMenuDialog({ theme, controller, onClose, pluginId, hostId 
             theme={theme}
             danger
             label={`Remove from ${host.label}...`}
-            note={rules.manage}
-            disabled={rules.manage !== null}
+            note={rules.manage ?? busy}
+            disabled={rules.manage !== null || busy !== null}
             onPress={() => dispatch({ type: "openDialog", dialog: { kind: "remove", pluginId, hostId: host.id } })}
           />
         )}
@@ -125,7 +127,7 @@ export function InstallDialog({ theme, controller, onClose, pluginId, hostId }: 
           theme={theme}
           variant="primary"
           label={`Stage install on ${chosen.length} host(s)`}
-          disabled={!parsed.ok || chosen.length === 0}
+          disabled={!parsed.ok || chosen.length === 0 || controller.state.applying}
           onPress={() => {
             if (!parsed.ok) return;
             const inputs: StageInput[] = chosen.map(({ host }) => ({
@@ -190,7 +192,7 @@ export function RemoveDialog({ theme, controller, onClose, pluginId, hostId }: P
           theme={theme}
           variant="danger"
           label={`Stage removal on ${chosen.length} host(s)`}
-          disabled={chosen.length === 0}
+          disabled={chosen.length === 0 || controller.state.applying}
           onPress={() => {
             dispatch({ type: "stage", inputs: chosen.map(({ host }): StageInput => ({ op: "removePlugin", host: hostRef(host), pluginId })) });
             onClose();

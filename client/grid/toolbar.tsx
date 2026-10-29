@@ -22,6 +22,7 @@ export function Toolbar({ theme, controller }: Pick<MhmSurfaceProps, "theme" | "
       <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>
         Supports Paseo {MINIMUM_PASEO} to {TESTED_VERSION}
       </Text>
+      {controller.policyNote ? <Text style={{ color: colors.statusWarning, fontSize: 11 }}>{controller.policyNote}</Text> : null}
       <View style={{ flex: 1 }} />
       <Button
         theme={theme}
