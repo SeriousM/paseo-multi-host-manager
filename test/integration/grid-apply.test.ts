@@ -6,7 +6,7 @@ import { applyRpc, gridLoadRpc, docReadRpc } from "../../shared/contracts";
 import type { ApplyItem, ApplyResult, GridHostData } from "../../shared/contracts";
 import { patchConfigVerified } from "../../server/broker/config-patch";
 import type { DaemonClient } from "../../server/broker/daemon-client";
-import { connectHub, enabled, hostFiles, hubHome, PLUGIN_ID, readSecrets, readState, relayPairing, routeTo, setConsent } from "./env";
+import { connectDirectW, connectHub, enabled, hostFiles, hubHome, PLUGIN_ID, readSecrets, readState, relayPairing, routeTo, setConsent } from "./env";
 
 const policy = { allowPrerelease: false, insecureLinkRegistrationIds: [] };
 const KEEP_AWAKE = "hichamboushaba/keep-awake";
@@ -30,10 +30,10 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
   };
   const apply = async (...items: ApplyItem[]): Promise<ApplyResult[]> =>
     applyRpc.output.parse(await hub.invokePluginRpc(PLUGIN_ID, applyRpc.name, { ...policy, items })).results;
-  const waitFor = async <T>(read: () => Promise<T>, done: (value: T) => boolean): Promise<T> => {
+  const waitFor = async <T>(read: () => Promise<T>, done: (value: T) => boolean, attempts = 20): Promise<T> => {
     for (let attempt = 0; ; attempt++) {
       const value = await read();
-      if (done(value) || attempt >= 20) return value;
+      if (done(value) || attempt >= attempts) return value;
       await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
   };
@@ -113,7 +113,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       const [result] = await apply({ id: "i", host: ids.L, op: "installPlugin", source: KEEP_AWAKE, confirmed: true });
       expect(result.outcome).toMatchObject({ status: "ok", pluginStatus: "running" });
       const installed = await find();
-      expect(installed).toMatchObject({ enabled: true, status: "running", source: { kind: "registry", installSource: KEEP_AWAKE } });
+      expect(installed).toMatchObject({ enabled: true, status: "running", source: { kind: "registry", installSource: KEEP_AWAKE, pinned: false } });
       expect(installed?.version).toBeTruthy();
     }, 120_000);
 
@@ -159,7 +159,8 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       await apply({ id: "x", host: ids.L, op: "removePlugin", pluginId: KEEP_AWAKE_ID, confirmed: true });
       const [install] = await apply({ id: "i", host: ids.L, op: "installPlugin", source: KEEP_AWAKE_OLD, confirmed: true });
       expect(install.outcome).toMatchObject({ status: "ok", pluginId: KEEP_AWAKE_ID, version: "0.1.2" });
-      expect(await find()).toMatchObject({ version: "0.1.2", source: { kind: "npm", installSource: "npm:paseo-keep-awake" } });
+      // The listed source is pinned, so copying it to another host reproduces 0.1.2.
+      expect(await find()).toMatchObject({ version: "0.1.2", source: { kind: "npm", installSource: KEEP_AWAKE_OLD, ref: null, pinned: true } });
       const [check] = await apply({ id: "c", host: ids.L, op: "updatePlugin", pluginId: KEEP_AWAKE_ID, checkOnly: true });
       expect(check.outcome).toMatchObject({ status: "ok", updateOutcome: "update" });
       expect((await find())?.version).toBe("0.1.2");
@@ -189,7 +190,10 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
         expect(result.outcome).toEqual({ status: "ok" });
         expect((await dataOf("W")).rows.sys).toMatchObject({ state: "ok", value: PROMPT });
       } finally {
-        await apply({ id: "restore", host: ids.W, op: "setRow", rowId: "sys", value: String(original) });
+        // The saved host's registration id names the same host as its server id.
+        const registrationId = readState().hubHosts.find((h) => h.key === "W")?.registrationId ?? "";
+        const [restored] = await apply({ id: "restore", host: registrationId, op: "setRow", rowId: "sys", value: String(original) });
+        expect(restored.outcome).toEqual({ status: "ok" });
       }
       expect((await dataOf("W")).rows.sys.value).toBe(original);
     });
@@ -281,7 +285,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
     });
 
     it("marks the companion disabled, not failed, and comes back after switching on", async () => {
-      const [off] = await apply({ id: "off", host: ids.L, op: "setRow", rowId: "pen", value: false });
+      const [off] = await apply({ id: "off", host: ids.L, op: "setRow", rowId: "pen", value: false, confirmed: true });
       expect(off.outcome).toEqual({ status: "ok" });
       const row = (await load()).find((host) => host.id === ids.L);
       expect(row?.result.ok).toBe(true);
@@ -297,5 +301,102 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       expect(back.companion.state).toBe("ok");
       expect(back.rows.pen.value).toBe(true);
     }, 120_000);
+  });
+
+  describe("lockout confirmation and self target", () => {
+    it("refuses switches that cut the hub off without confirmation and leaves the hosts alone", async () => {
+      const results = await apply(
+        { id: "relay", host: ids.W, op: "setRow", rowId: "relay", value: false },
+        { id: "pen", host: ids.L, op: "setRow", rowId: "pen", value: false },
+        { id: "remove", host: ids.W, op: "removePlugin", pluginId: PLUGIN_ID },
+        { id: "disable", host: ids.L, op: "setPluginEnabled", pluginId: PLUGIN_ID, enabled: false },
+      );
+      for (const result of results) expect(result.outcome).toMatchObject({ status: "failed", error: { code: "lockout_confirmation_required" } });
+      const [W, L] = [await dataOf("W"), await dataOf("L")];
+      expect(W.rows.relay.value).toBe(true);
+      expect(L.rows.pen.value).toBe(true);
+      for (const data of [W, L]) expect(data.plugins.find((plugin) => plugin.id === PLUGIN_ID)).toMatchObject({ enabled: true, status: "running" });
+    });
+
+    it("never removes or disables this plugin on the hub, even when confirmed", async () => {
+      const hubId = (await load())[0].id;
+      const results = await apply(
+        { id: "remove", host: hubId, op: "removePlugin", pluginId: PLUGIN_ID, confirmed: true },
+        { id: "disable", host: hubId, op: "setPluginEnabled", pluginId: PLUGIN_ID, enabled: false, confirmed: true },
+      );
+      for (const result of results) expect(result.outcome).toMatchObject({ status: "failed", error: { code: "invalid_item", detail: "self_target" } });
+      const hubRow = (await load())[0];
+      expect(hubRow.result.ok && hubRow.result.value.plugins.find((plugin) => plugin.id === PLUGIN_ID)).toMatchObject({ enabled: true, status: "running" });
+    });
+  });
+
+  describe("providers paste on W", () => {
+    const KNOWN = "claude";
+    const ABSENT = "mhm-absent-provider";
+    let original: unknown;
+
+    beforeAll(async () => {
+      const routed = await routeTo(hub, "W");
+      try {
+        const providers = (await routed.client.getDaemonConfig()).config.providers;
+        original = providers[KNOWN];
+        if (original === undefined) await patchConfigVerified(routed.client, { providers: { [KNOWN]: { enabled: true } } });
+      } finally {
+        await routed.close();
+      }
+    });
+    afterAll(async () => {
+      const routed = await routeTo(hub, "W");
+      try {
+        await routed.client.patchDaemonConfig(original === undefined ? { removeProviders: [KNOWN] } : { providers: { [KNOWN]: z.record(z.string(), z.json()).parse(original) } });
+      } finally {
+        await routed.close();
+      }
+    });
+
+    it("updates only providers W already has, drops masked keys and reports the others as ignored", async () => {
+      const [result] = await apply({
+        id: "p",
+        host: ids.W,
+        op: "setRow",
+        rowId: "prov",
+        value: { [KNOWN]: { enabled: false, apiKey: "<masked>" }, [ABSENT]: { enabled: true } },
+      });
+      expect(result.outcome).toEqual({ status: "ignored", paths: [`providers.${ABSENT}`] });
+      const providers = (await dataOf("W")).rows.prov.value;
+      expect(providers).toMatchObject({ [KNOWN]: { enabled: false } });
+      expect(providers).not.toHaveProperty(ABSENT);
+      expect(providers).not.toHaveProperty([KNOWN, "apiKey"]);
+    });
+  });
+
+  // Last on purpose: it cuts the hub's relay link to W and restores it directly, so nothing may run on W meanwhile.
+  describe("switch-off order on W", () => {
+    it("runs other items, then pluginsEnabled off, and relay off last of all", async () => {
+      const original = (await dataOf("W")).rows.sys.value;
+      const direct = await connectDirectW();
+      try {
+        const results = await apply(
+          { id: "relay", host: ids.W, op: "setRow", rowId: "relay", value: false, confirmed: true },
+          { id: "pen", host: ids.W, op: "setRow", rowId: "pen", value: false, confirmed: true },
+          { id: "sys", host: ids.W, op: "setRow", rowId: "sys", value: PROMPT },
+        );
+        // Relay off may drop the very connection that re-reads it: then it is ok but unverified, never failed.
+        expect(results.map((result) => result.outcome)).toMatchObject([{ status: "ok" }, { status: "ok" }, { status: "ok" }]);
+        const { config } = await direct.getDaemonConfig();
+        expect(config.relay?.enabled).toBe(false);
+        expect(config.pluginsEnabled).toBe(false);
+        expect(config.appendSystemPrompt).toBe(PROMPT);
+      } finally {
+        await direct.patchDaemonConfig({ relay: { enabled: true }, pluginsEnabled: true, appendSystemPrompt: String(original) });
+        await direct.close();
+      }
+      const back = await waitFor(
+        async () => (await load()).find((row) => row.id === ids.W)?.result,
+        (result) => result?.ok === true && result.value.companion.state === "ok",
+        90,
+      );
+      expect(back).toMatchObject({ ok: true, value: { rows: { relay: { value: true }, pen: { value: true }, sys: { value: original } } } });
+    }, 180_000);
   });
 });

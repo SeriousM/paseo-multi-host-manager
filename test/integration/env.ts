@@ -57,6 +57,14 @@ export function routeTo(hub: DaemonClient, key: "W" | "L"): Promise<RoutedClient
   return connectRoutedClient(hub, serverId);
 }
 
+/** Connects to W's own daemon with its local credential, bypassing the hub: the way back after a test cut the hub's relay link to W. */
+export async function connectDirectW(): Promise<DaemonClient> {
+  const home = readState().windows.home;
+  const address = readHubAddress(home);
+  if (!address) throw new Error("W paseo.pid not found");
+  return connectOriginClient(address.listen, () => readLocalCredential(home));
+}
+
 /** Reads and writes files below a host's $PASEO_HOME directly, bypassing the hub (test setup only). */
 export interface HostFiles {
   read(relative: string): string | null;
