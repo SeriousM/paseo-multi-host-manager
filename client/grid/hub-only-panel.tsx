@@ -22,9 +22,10 @@ export function HubOnlyPanel({ theme, controller }: Pick<MhmSurfaceProps, "theme
       <View style={{ flexDirection: "row" }}>
         <Button theme={theme} variant="primary" label="Add host..." onPress={() => controller.dispatch({ type: "openDialog", dialog: { kind: "addHost" } })} />
       </View>
-      <Text style={muted}>
-        Or in a terminal on the hub: <Text style={{ ...MONO }}>paseo host add &apos;&lt;link&gt;&apos; --label laptop</Text>. Quote the link, it contains &amp;.
-      </Text>
+      <View style={{ gap: 4 }}>
+        <Text style={muted}>Or in a terminal on the hub (keep the quotes, the link contains &amp;):</Text>
+        <Text style={{ ...muted, ...MONO }}>paseo host add &apos;&lt;link&gt;&apos; --label laptop</Text>
+      </View>
     </View>
   );
 }

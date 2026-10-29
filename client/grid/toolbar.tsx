@@ -31,13 +31,16 @@ export function Toolbar({ theme, controller, compact }: Pick<MhmSurfaceProps, "t
       {controller.policyNote ? <Text style={{ color: colors.statusWarning, ...font(TYPE.secondary) }}>{controller.policyNote}</Text> : null}
       <View style={{ flex: 1 }} />
       {baseline ? <Text style={{ color: colors.accent, ...font(TYPE.secondary) }}>Baseline: {baseline.label}</Text> : null}
-      <Button
-        theme={theme}
-        label="Only differences"
-        active={state.onlyDifferences}
-        disabled={!baseline}
-        onPress={() => dispatch({ type: "setOnlyDifferences", on: !state.onlyDifferences })}
-      />
+      {/* The filter acts on the grid only; the compact view lists every line with its own "same" or "differs". */}
+      {state.view === "compact" || (state.view === "auto" && compact) ? null : (
+        <Button
+          theme={theme}
+          label="Only differences"
+          active={state.onlyDifferences}
+          disabled={!baseline}
+          onPress={() => dispatch({ type: "setOnlyDifferences", on: !state.onlyDifferences })}
+        />
+      )}
       <Button
         theme={theme}
         label={policy.allowPrerelease ? "Pre-release hosts: allowed" : "Pre-release hosts: blocked"}
