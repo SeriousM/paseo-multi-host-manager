@@ -135,7 +135,8 @@ const ROW_STATE_REASONS: Record<string, string> = {
   protected: "Never read or copied",
 };
 
-export type CellTone = "plain" | "source" | "differs" | "staged" | "applying" | "applied" | "failed";
+/** `attention`: nothing staged, but something the user should follow up (a written settings document of unknown validity). */
+export type CellTone = "plain" | "source" | "differs" | "staged" | "applying" | "applied" | "failed" | "attention";
 
 export interface CellView {
   ref: CellRef;
@@ -287,14 +288,16 @@ export function pluginCellView(state: MhmState, row: PluginRow, hostId: string):
   const differs =
     clip?.kind === "plugin" && clip.pluginId === row.id && clip.sourceHost !== hostId && (!current || current.version !== clip.plugin.version || current.enabled !== clip.plugin.enabled);
   const status = current ? `${current.status} - ${current.source.kind}` : null;
+  const written = host ? state.writtenDocs.filter((doc) => doc.pluginId === row.id && itemOnHost(doc.host, host)) : [];
+  const attention = !staged && written.length > 0 ? `settings written (${written.map((doc) => doc.settingsId).join(", ")}), validity unknown - reload the plugin` : null;
   return {
     ...base,
     text: stagedText ?? (current ? formatPlugin(current) : "not installed"),
-    detail: staged ? outcomeText(staged) : status,
+    detail: staged ? outcomeText(staged) : (attention ?? status),
     unavailable: null,
     differsFromSource: differs,
     copyable: current !== undefined,
-    tone: tone(staged, isSource, differs),
+    tone: attention && !isSource ? "attention" : tone(staged, isSource, differs),
   };
 }
 

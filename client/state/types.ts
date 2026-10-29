@@ -42,6 +42,21 @@ export interface StagedItem {
   confirmed: Confirmation[];
 }
 
+/**
+ * A settings document this session wrote or restored. The plugin was not asked whether it accepts the values, so the
+ * editor and the plugin cell say "validity unknown" until the plugin is reloaded or the user dismisses it; the marker
+ * outlives `clearApplied`.
+ */
+export interface WrittenDoc {
+  /** The apply item's host reference (registration id, or the hub's id). */
+  host: string;
+  pluginId: string;
+  settingsId: string;
+  op: "writeSettingsDoc" | "restoreSettingsDoc";
+  keptMaskedPaths: string[];
+  backedUp: boolean;
+}
+
 /** A dialog the screen shows; 8b/8c own the components, the state only says which one is open. */
 export type DialogRequest =
   /** Trust confirmation for the staged installs (item ids). */
@@ -70,6 +85,7 @@ export interface MhmState {
   /** Hosts picked in the clipboard bar for "paste to several hosts". */
   pasteTargets: string[];
   staged: StagedItem[];
+  writtenDocs: WrittenDoc[];
   applying: boolean;
   dialog: DialogRequest | null;
   view: ViewMode;

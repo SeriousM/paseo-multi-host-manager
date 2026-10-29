@@ -1,6 +1,6 @@
 import type { ApplyItem, ApplyResult, BrokerPolicy } from "../../shared/contracts";
 import { OWN_PLUGIN_ID } from "../../shared/companion-contracts";
-import type { Confirmation, DialogRequest, GridHost, StagedItem, StagedStatus, StageInput } from "./types";
+import type { Confirmation, DialogRequest, GridHost, StagedItem, StagedStatus, StageInput, WrittenDoc } from "./types";
 
 /**
  * How staged items name their host. Saved hosts by registration id: a host's `id` flips from the registration id to
@@ -126,6 +126,32 @@ export function withResults(staged: readonly StagedItem[], results: readonly App
     const result = results.find((candidate) => candidate.id === entry.item.id);
     return result ? { ...entry, status: OUTCOME_STATUS[result.outcome.status], outcome: result.outcome } : entry;
   });
+}
+
+/**
+ * Keeps the "written, validity unknown" markers in step with apply results: a successful document write or restore
+ * adds (or replaces) one, a successful reload of the plugin on that host clears its markers.
+ */
+export function withWrittenDocs(written: readonly WrittenDoc[], staged: readonly StagedItem[], results: readonly ApplyResult[]): WrittenDoc[] {
+  let next = [...written];
+  for (const result of results) {
+    const item = staged.find((entry) => entry.item.id === result.id)?.item;
+    if (!item || result.outcome.status !== "ok") continue;
+    if (item.op === "reloadPlugin") {
+      next = next.filter((doc) => !(doc.host === item.host && doc.pluginId === item.pluginId));
+    } else if (item.op === "writeSettingsDoc" || item.op === "restoreSettingsDoc") {
+      const marker: WrittenDoc = {
+        host: item.host,
+        pluginId: item.pluginId,
+        settingsId: item.settingsId,
+        op: item.op,
+        keptMaskedPaths: result.outcome.keptMaskedPaths ?? [],
+        backedUp: result.outcome.backedUp === true,
+      };
+      next = [...next.filter((doc) => !(doc.host === item.host && doc.pluginId === item.pluginId && doc.settingsId === item.settingsId)), marker];
+    }
+  }
+  return next;
 }
 
 /**

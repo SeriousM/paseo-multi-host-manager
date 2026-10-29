@@ -39,6 +39,8 @@ export function toneStyle(theme: PluginTheme, tone: CellTone): { backgroundColor
       return { backgroundColor: tint(colors.statusSuccess, 0.18), borderColor: tint(colors.statusSuccess, 0.5), borderStyle: "solid" };
     case "failed":
       return { backgroundColor: tint(colors.statusDanger, 0.16), borderColor: tint(colors.statusDanger, 0.6), borderStyle: "solid" };
+    case "attention":
+      return { backgroundColor: tint(colors.statusWarning, 0.06), borderColor: colors.statusWarning, borderStyle: "dashed" };
     case "plain":
       return { backgroundColor: "transparent", borderColor: "transparent", borderStyle: "solid" };
   }

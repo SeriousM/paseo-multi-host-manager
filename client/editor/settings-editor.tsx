@@ -9,7 +9,7 @@ import type { DialogProps } from "../dialogs/dialog-frame";
 import { MONO } from "../grid/palette";
 import { Badge, Button } from "../grid/primitives";
 import { findHost } from "../state/grid-model";
-import { docStatus, editorAccess, OPT_IN_EXPLANATION, stagedFor, toLoadedDoc } from "./access";
+import { docStatus, editorAccess, OPT_IN_EXPLANATION, stagedFor, toLoadedDoc, writtenFor, writtenStatus } from "./access";
 import type { LoadedDoc } from "./access";
 import { DocFields } from "./doc-fields";
 import { pasteNote, planDocPaste, previewWrite } from "./doc-preview";
@@ -91,7 +91,8 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
   }, [accessOk, hostId, pluginId, settingsId]);
 
   const staged = host ? stagedFor(state.staged, host, pluginId, settingsId) : { doc: null, reload: null };
-  const status = docStatus(staged.doc);
+  const written = host ? writtenFor(state.writtenDocs, host, pluginId, settingsId) : null;
+  const status = staged.doc ? docStatus(staged.doc) : writtenStatus(written);
   const reloadStatus = docStatus(staged.reload);
 
   // After an applied write the host stores new bytes: show them, but keep the status of the staged item.
@@ -270,8 +271,9 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
                 {staged.reload ? (
                   <Note color={reloadStatus.phase === "failed" ? colors.statusDanger : colors.foregroundMuted} text={staged.reload.status === "ok" ? "Plugin reloaded. Validity is still unverified from here." : staged.reload.status === "pending" ? "Reload staged. It is sent with Apply." : staged.reload.status === "applying" ? "Reloading the plugin..." : reloadStatus.message || "Reload did not finish."} />
                 ) : (
-                  <View style={{ flexDirection: "row" }}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
                     <Button theme={theme} variant="primary" label="Reload plugin" disabled={state.applying} onPress={stageReload} />
+                    {written ? <Button theme={theme} label="Dismiss" onPress={() => dispatch({ type: "dismissWritten", host: written.host, pluginId, settingsId })} /> : null}
                   </View>
                 )}
               </>

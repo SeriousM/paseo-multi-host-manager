@@ -1,7 +1,7 @@
 import type { ApplyResult } from "../../shared/contracts";
 import { clipFromCell, pasteTargetsInputs, planPaste } from "./clipboard";
 import { orderHosts } from "./grid-model";
-import { confirmItems, itemOnHost, markApplying, stageItems, withApplyError, withResults } from "./staging";
+import { confirmItems, itemOnHost, markApplying, stageItems, withApplyError, withResults, withWrittenDocs } from "./staging";
 import type { CellRef, ClipboardEntry, Confirmation, DialogRequest, GridHost, MhmState, StageInput, ViewMode } from "./types";
 
 export type MhmAction =
@@ -27,6 +27,8 @@ export type MhmAction =
   | { type: "applyFailed"; message: string }
   /** Drops the applied items; failed, skipped, ignored and unknown ones stay for Retry or removal. */
   | { type: "clearApplied" }
+  /** Hides the "written, validity unknown" marker of one document (the user checked the plugin himself). */
+  | { type: "dismissWritten"; host: string; pluginId: string; settingsId: string }
   | { type: "openDialog"; dialog: DialogRequest }
   | { type: "closeDialog" }
   | { type: "setView"; view: ViewMode }
@@ -38,6 +40,7 @@ export const INITIAL_STATE: MhmState = {
   clipboard: null,
   pasteTargets: [],
   staged: [],
+  writtenDocs: [],
   applying: false,
   dialog: null,
   view: "auto",
@@ -103,11 +106,16 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
     case "applyStarted":
       return { ...state, applying: true, staged: markApplying(state.staged) };
     case "applyFinished":
-      return { ...state, applying: false, staged: withResults(state.staged, action.results) };
+      return { ...state, applying: false, staged: withResults(state.staged, action.results), writtenDocs: withWrittenDocs(state.writtenDocs, state.staged, action.results) };
     case "applyFailed":
       return { ...state, applying: false, staged: withApplyError(state.staged, state.hosts, action.message) };
     case "clearApplied":
       return { ...state, staged: state.staged.filter((entry) => entry.status !== "ok") };
+    case "dismissWritten":
+      return {
+        ...state,
+        writtenDocs: state.writtenDocs.filter((doc) => !(doc.host === action.host && doc.pluginId === action.pluginId && doc.settingsId === action.settingsId)),
+      };
     case "openDialog":
       return { ...state, dialog: action.dialog };
     case "closeDialog":

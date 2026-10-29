@@ -3,7 +3,7 @@ import type { docReadRpc } from "../../shared/contracts";
 import type { Json } from "../../shared/mask";
 import { hostData } from "../state/grid-model";
 import { itemOnHost } from "../state/staging";
-import type { GridHost, StagedItem } from "../state/types";
+import type { GridHost, StagedItem, WrittenDoc } from "../state/types";
 
 export type EditorAccess =
   | { ok: true }
@@ -117,4 +117,24 @@ export function docStatus(entry: StagedItem | null): DocStatus {
     case "skipped":
       return { ...base, phase: "skipped", message: "Skipped because an earlier item for this host did not succeed." };
   }
+}
+
+/** The marker of this document on `host` that outlives its staged item (see `WrittenDoc`), or null. */
+export function writtenFor(written: readonly WrittenDoc[], host: GridHost, pluginId: string, settingsId: string): WrittenDoc | null {
+  return written.find((doc) => doc.pluginId === pluginId && doc.settingsId === settingsId && itemOnHost(doc.host, host)) ?? null;
+}
+
+/** Status for a document written earlier in this session whose staged item is gone (cleared after Apply). */
+export function writtenStatus(doc: WrittenDoc | null): DocStatus {
+  const base = docStatus(null);
+  if (!doc) return base;
+  return {
+    ...base,
+    phase: "written",
+    message: `${doc.op === "restoreSettingsDoc" ? "Restored" : "Written"} earlier in this session, validity unknown: the plugin was not asked whether it accepts these values.`,
+    validityUnknown: true,
+    reloadSuggested: true,
+    keptMaskedPaths: doc.keptMaskedPaths,
+    backedUp: doc.backedUp,
+  };
 }

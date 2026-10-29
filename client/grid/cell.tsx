@@ -9,7 +9,7 @@ export function GridCell({ theme, view, width, height, onSelect }: { theme: Plug
   const { colors } = theme;
   const tone = toneStyle(theme, view.tone);
   const dim = view.unavailable !== null && view.staged === null;
-  const detailColor = view.tone === "failed" ? severityColor(theme, "bad") : view.staged ? severityColor(theme, "warn") : view.masked ? severityColor(theme, "warn") : colors.foregroundMuted;
+  const detailColor = view.tone === "failed" ? severityColor(theme, "bad") : view.staged || view.masked || view.tone === "attention" ? severityColor(theme, "warn") : colors.foregroundMuted;
   return (
     <Pressable
       accessibilityRole="button"
