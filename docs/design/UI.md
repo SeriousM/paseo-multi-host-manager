@@ -19,7 +19,7 @@ One reducer, `mhmReducer(state, action)` in `reducer.ts`; pure and unit-tested (
 | `applying`, `dialog`, `view`, `compare` | Apply running; open dialog; `auto`/`grid`/`compact`; compact view's "into"/"from" hosts. |
 
 Controller: `state`, `dispatch`, `policy` + `savePolicy` (broker policy, host-scoped settings doc `broker` on the hub,
-`client/state/policy.ts`), `grid.refresh`, `apply()`, `confirm(kind, ids)`, `copyDoc(host, pluginId, settingsId)`.
+`shared/policy.ts`, `policyNote` when it fell back to defaults), `grid.refresh`, `apply()`, `confirm(kind, ids)`, `copyDoc(host, pluginId, settingsId)`.
 
 Rules baked into the state:
 - Staged items name saved hosts by `registrationId` (the hub by its id); cells match either id. One item per host and
@@ -29,6 +29,12 @@ Rules baked into the state:
   never staged (`stageRefusal`). `apply()` opens the missing confirmation first (lockout, destructive, trust), then
   sends the non-applied items with `confirmed: true` where all were given.
 - Apply and Retry send only `SENDABLE` items (pending, failed, skipped); ignored and unknown ones wait for a reload or removal.
+- Apply runs as a job on the hub: `mhm.apply.start`, then `mhm.apply.poll` every second (`applyProgress` merges the
+  items settled so far). A plugin RPC has 30 s on the daemon, less than one install may take. The hub applies hosts one
+  after the other in its directory order, the hub last; the drawer lists them in that order. While `applying`, every
+  staging action is ignored and results merge only into items being applied.
+- `updateChecks`: a check-only update that found an update shows "update available" on the plugin cell until the
+  host reports another version or the user presses Refresh.
 - Failure texts per code and detail live in `client/state/failure-text.ts` (cells and drawer).
 - Settings documents are never pasted by the grid: the action bar and the clipboard bar open the editor on the target. This plugin's own documents are read-only (the companion refuses remote writes to them).
 - After Apply: per-item `ok` / `ignored` / `failed` / `skipped`; a lost response when the batch switched the hub's
@@ -49,7 +55,7 @@ Rules baked into the state:
 Dialogs open with `dispatch({ type: "openDialog", dialog })` (`DialogRequest` in types.ts) and close with
 `closeDialog`; `DialogHost` (client/dialogs/dialog-host.tsx) maps each kind to its component, which gets
 `DialogProps` (`MhmSurfaceProps` + `onClose`) plus the request's fields. Dialogs stage through `dispatch({ type: "stage" })`
-and never call `mhm.apply` themselves.
+and never call the apply RPCs themselves.
 
 ## Settings editor (client/editor/)
 `SettingsEditor` reads the document (`mhm.doc.read`, masked), edits it as a field list or JSON text and stages `writeSettingsDoc`
