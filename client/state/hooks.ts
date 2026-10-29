@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { Dispatch } from "react";
 import { unencryptedLink } from "../../shared/connection";
-import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc, hostAddRpc } from "../../shared/contracts";
+import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc, hostAddRpc, hostRemoveRpc } from "../../shared/contracts";
 import type { BrokerPolicy, HostFailure } from "../../shared/contracts";
 import { DEFAULT_POLICY, brokerSettings } from "../../shared/policy";
 import { runApply } from "./apply-run";
@@ -37,6 +37,12 @@ export interface MhmController {
    * the failure, or null on success.
    */
   addHost: (input: { connection: string; label: string; allowUnencrypted: boolean }) => Promise<HostFailure | string | null>;
+  /**
+   * Removes a saved host from the hub (`mhm.hosts.remove`), right away, not staged. On success it drops the host's
+   * column, staged items and references (`hostRemoved`), forgets its plain-link allowance in the policy and reloads
+   * the grid. Resolves to the failure, or null on success.
+   */
+  removeHost: (hostId: string, registrationId: string) => Promise<HostFailure | string | null>;
 }
 
 function message(error: unknown): string {
@@ -50,6 +56,7 @@ export function useMhm(hostId: string): MhmController {
   const pollApply = useRpc(applyPollRpc);
   const readDoc = useRpc(docReadRpc);
   const saveHost = useRpc(hostAddRpc);
+  const dropHost = useRpc(hostRemoveRpc);
   const settings = useSettings(brokerSettings);
   const policy = settings.status === "ready" ? settings.values : DEFAULT_POLICY;
   const policyNote =
@@ -146,6 +153,26 @@ export function useMhm(hostId: string): MhmController {
     [policy, refresh, savePolicy, saveHost],
   );
 
+  const removeHost = useCallback(
+    async (removedId: string, registrationId: string) => {
+      let result;
+      try {
+        result = await dropHost({ ...policy, registrationId });
+      } catch (error) {
+        return message(error);
+      }
+      if (!result.ok) return result.error;
+      dispatch({ type: "hostRemoved", hostId: removedId });
+      // A saved policy reloads the grid by itself (it is part of the query key).
+      if (policy.insecureLinkRegistrationIds.includes(registrationId)) {
+        if (await savePolicy({ ...policy, insecureLinkRegistrationIds: policy.insecureLinkRegistrationIds.filter((id) => id !== registrationId) })) return null;
+      }
+      refresh();
+      return null;
+    },
+    [dropHost, policy, refresh, savePolicy],
+  );
+
   return {
     state,
     dispatch,
@@ -157,5 +184,6 @@ export function useMhm(hostId: string): MhmController {
     confirm,
     copyDoc,
     addHost,
+    removeHost,
   };
 }

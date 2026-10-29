@@ -86,7 +86,9 @@ export type DialogRequest =
   /** Settings-document editor (8c). */
   | { kind: "editor"; pluginId: string; settingsId: string; hostId: string }
   /** Save a new host on the hub (a direct action, not staged). */
-  | { kind: "addHost" };
+  | { kind: "addHost" }
+  /** Remove a saved host from the hub (a direct action, not staged; destructive confirmation). */
+  | { kind: "removeHost"; hostId: string };
 
 export type ViewMode = "auto" | "grid" | "compact";
 

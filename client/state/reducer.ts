@@ -44,7 +44,13 @@ export type MhmAction =
   | { type: "setView"; view: ViewMode }
   | { type: "setCompare"; into?: string | null; from?: string | null }
   /** Add host saved a host: close the dialog and select its column once a grid load has it. */
-  | { type: "hostAdded"; registrationId: string };
+  | { type: "hostAdded"; registrationId: string }
+  /**
+   * The hub no longer has this saved host: drop its column and everything that points to it (staged items, baseline,
+   * selection, paste targets, compare picks, a clipboard copied from it, written and update markers). Ignored while
+   * an apply runs, since the queue is frozen then.
+   */
+  | { type: "hostRemoved"; hostId: string };
 
 export const INITIAL_STATE: MhmState = {
   hosts: [],
@@ -173,5 +179,26 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
       return { ...state, compare: { into: action.into === undefined ? state.compare.into : action.into, from: action.from === undefined ? state.compare.from : action.from } };
     case "hostAdded":
       return { ...state, dialog: null, focusHost: action.registrationId };
+    case "hostRemoved": {
+      const host = state.hosts.find((candidate) => candidate.id === action.hostId);
+      if (state.applying || !host || host.isHub) return { ...state, dialog: null };
+      const on = (ref: string | null) => ref !== null && itemOnHost(ref, host);
+      const baselineGone = on(state.baseline);
+      return {
+        ...state,
+        hosts: state.hosts.filter((candidate) => candidate !== host),
+        staged: state.staged.filter((entry) => !on(entry.item.host)),
+        writtenDocs: state.writtenDocs.filter((doc) => !on(doc.host)),
+        updateChecks: state.updateChecks.filter((check) => !on(check.host)),
+        selection: state.selection && on(state.selection.hostId) ? null : state.selection,
+        clipboard: state.clipboard && on(state.clipboard.sourceHost) ? null : state.clipboard,
+        pasteTargets: state.pasteTargets.filter((hostId) => !on(hostId)),
+        compare: { into: on(state.compare.into) ? null : state.compare.into, from: on(state.compare.from) ? null : state.compare.from },
+        baseline: baselineGone ? null : state.baseline,
+        onlyDifferences: baselineGone ? false : state.onlyDifferences,
+        focusHost: on(state.focusHost) ? null : state.focusHost,
+        dialog: null,
+      };
+    }
   }
 }

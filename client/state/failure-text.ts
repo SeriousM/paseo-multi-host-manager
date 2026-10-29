@@ -9,6 +9,7 @@ const INVALID_ITEM_TEXT: Record<string, string> = {
   read_only_row: "This setting is read-only.",
   protected_row: "This setting is never read or written.",
   unknown_row: "The hub does not know this setting.",
+  unknown_host: "The hub has no saved host with this id. Refresh the grid.",
 };
 
 const HOST_ERROR_TEXT: Record<string, string> = {
@@ -23,6 +24,7 @@ const HOST_ERROR_TEXT: Record<string, string> = {
   resource_limit: "The hub already has the most saved hosts it allows (128). Remove one first.",
   source_conflict: "The hub already has this registration. Refresh the grid.",
   permission_denied: "The hub's daemon does not allow this plugin to change its saved hosts.",
+  host_unknown: "The hub no longer has this saved host. Refresh the grid.",
 };
 
 const CAPABILITY_DISABLED_TEXT: Record<string, string> = {

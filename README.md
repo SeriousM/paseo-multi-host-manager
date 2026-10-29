@@ -78,7 +78,8 @@ What it reads and writes, by tier:
   Other plugins' settings documents can be read on every host, with secrets masked. The plugin
   installs, updates and removes plugin code on your other hosts, only for items you staged and
   confirmed. It adds hosts to the hub's saved-host list when you use Add host (`addHost`, the call
-  `paseo host add` makes).
+  `paseo host add` makes), and removes hosts from it when you use Remove saved host (`removeHost`,
+  as `paseo host rm`; nothing on that host changes).
 - Tier B, off by default, per target host. With `allowPluginSettingsWrites` switched on in this
   plugin's settings on the target host, the companion there writes other plugins' settings
   documents. It checks the document has not changed since it was read, keeps a `.bak` (restore swaps

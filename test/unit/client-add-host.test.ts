@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { addFailureText, addHostView } from "../../client/dialogs/add-host-rules";
+import { removeFailureText, removeHostView } from "../../client/dialogs/remove-host-rules";
 import type { AddHostForm } from "../../client/dialogs/add-host-rules";
 import { gridLayout, hubOnly, PANEL_MIN_WIDTH } from "../../client/grid/layout";
 import { SIZES } from "../../client/grid/palette";
 import { INITIAL_STATE, mhmReducer } from "../../client/state/reducer";
-import type { GridHost } from "../../client/state/types";
+import type { GridHost, MhmState, StagedItem } from "../../client/state/types";
 
 const form = (connection: string, extra: Partial<AddHostForm> = {}): AddHostForm => ({ connection, label: "", unencryptedConfirmed: false, hubAskedConfirm: false, ...extra });
 
@@ -102,5 +103,57 @@ describe("grid layout", () => {
     expect(hubOnly([host("h", { isHub: true })])).toBe(true);
     expect(hubOnly([host("h", { isHub: true, ok: false })])).toBe(false);
     expect(hubOnly([host("h", { isHub: true }), host("w")])).toBe(false);
+  });
+});
+
+describe("remove saved host", () => {
+  const hub = host("srv_hub", { isHub: true });
+  const w = host("srv_w", { registrationId: "reg_w", ok: false });
+  const l = host("srv_l", { registrationId: "reg_l" });
+  const staged = (id: string, hostRef: string): StagedItem => ({
+    item: { id, host: hostRef, op: "setRow", rowId: "mcp", value: true },
+    status: "pending",
+    outcome: null,
+    requires: [],
+    confirmed: [],
+  });
+  const loaded = (): MhmState => ({
+    ...mhmReducer(INITIAL_STATE, { type: "gridLoaded", hosts: [hub, w, l] }),
+    staged: [staged("reg_w/row:mcp", "reg_w"), staged("reg_l/row:mcp", "reg_l")],
+    writtenDocs: [{ host: "reg_w", pluginId: "p", settingsId: "s", op: "writeSettingsDoc", keptMaskedPaths: [], backedUp: false }],
+    updateChecks: [{ host: "reg_w", pluginId: "p", version: "2" }],
+    selection: { kind: "host", hostId: "srv_w" },
+    clipboard: { kind: "row", rowId: "mcp", sourceHost: "srv_w", value: true },
+    pasteTargets: ["srv_w", "srv_l"],
+    compare: { into: "srv_hub", from: "srv_w" },
+    baseline: "reg_w",
+    onlyDifferences: true,
+    dialog: { kind: "removeHost", hostId: "srv_w" },
+  });
+
+  it("drops the host's column, staged items and every reference to it, and keeps the rest", () => {
+    const state = mhmReducer(loaded(), { type: "hostRemoved", hostId: "srv_w" });
+    expect(state.hosts.map((candidate) => candidate.id)).toEqual(["srv_hub", "srv_l"]);
+    expect(state.staged.map((entry) => entry.item.id)).toEqual(["reg_l/row:mcp"]);
+    expect(state).toMatchObject({ writtenDocs: [], updateChecks: [], selection: null, clipboard: null, pasteTargets: ["srv_l"], baseline: null, onlyDifferences: false, dialog: null });
+    expect(state.compare).toEqual({ into: "srv_hub", from: null });
+  });
+
+  it("does nothing to the queue while an apply runs, and never removes the hub", () => {
+    const applying = { ...loaded(), applying: true };
+    expect(mhmReducer(applying, { type: "hostRemoved", hostId: "srv_w" }).staged).toHaveLength(2);
+    expect(mhmReducer(loaded(), { type: "hostRemoved", hostId: "srv_hub" }).hosts).toHaveLength(3);
+  });
+
+  it("offers removal for a failing host, counts its staged items, and blocks the hub and a running apply", () => {
+    expect(removeHostView(loaded(), "srv_w")).toEqual({ label: "srv_w", registrationId: "reg_w", staged: 1, blocked: null });
+    expect(removeHostView(loaded(), "srv_hub")?.blocked).toContain("cannot remove itself");
+    expect(removeHostView({ ...loaded(), applying: true }, "srv_w")?.blocked).toContain("apply is running");
+    expect(removeHostView(loaded(), "gone")).toBeNull();
+  });
+
+  it("explains the hub refusal and keeps the fixed failure texts", () => {
+    expect(removeFailureText({ code: "invalid_item", message: "m", detail: "self_target" })).toBe("The hub cannot remove itself.");
+    expect(removeFailureText({ code: "invalid_item", message: "m", detail: "unknown_host" })).toContain("Refresh the grid");
   });
 });

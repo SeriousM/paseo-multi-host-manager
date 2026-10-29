@@ -67,6 +67,8 @@ your own Paseo hosts, over the connection you already saved for them.
   connection, including any password in it, in `hosts.json` on the hub (Paseo's own behaviour); the
   plugin passes it on and does not keep, log or return it. A plain TCP link needs an extra
   confirmation first.
+- Removes hosts from the hub's saved-host list when you use Remove saved host (`removeHost`, as
+  `paseo host rm`), at once and after a confirmation; nothing on that host changes.
 - Never reads `hosts.json`. Connection strings and targets are never logged beyond a scheme
   classification.
 - Reads `daemon.listen`, `worktrees.root` and `log.console.level` from `config.json` on each host for

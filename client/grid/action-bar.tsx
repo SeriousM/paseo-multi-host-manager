@@ -68,6 +68,10 @@ function HostActions({ theme, controller, host }: BarProps & { host: GridHost })
         />
       ) : null}
       <Button theme={theme} label="Capabilities..." onPress={() => dispatch({ type: "openDialog", dialog: { kind: "capabilities", hostId: host.id } })} />
+      {/* Also for hosts the hub cannot reach (wrong password, gone): removal only touches the hub's saved list. */}
+      {host.isHub ? null : (
+        <Button theme={theme} variant="danger" label="Remove saved host..." disabled={state.applying} onPress={() => dispatch({ type: "openDialog", dialog: { kind: "removeHost", hostId: host.id } })} />
+      )}
       <Button theme={theme} label="Close" onPress={() => dispatch({ type: "select", ref: null })} />
     </Bar>
   );

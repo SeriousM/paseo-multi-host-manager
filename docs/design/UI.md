@@ -62,6 +62,12 @@ server refuses it without `allowUnencrypted` (`insecure_link` / `unencrypted_lin
 controller adds its registration id to the policy's `insecureLinkRegistrationIds`, the same allowance the capabilities
 dialog gives a saved host. On success: `hostAdded`, grid reload, the new column selected. The server waits up to 10 s
 for the hub's first connect, so the returned status is usually `online` or the reason it is not.
+"Remove saved host..." (host action bar, not on the hub, disabled while applying) is the counterpart:
+`mhm.hosts.remove` removes the hub's saved entry without contacting the host, so it works for a wrong password or a
+host that is gone. Its dialog (`remove-host-dialog.tsx`, rules in `remove-host-rules.ts`) needs a ticked confirmation
+and says how many staged items go; on success `hostRemoved` drops the column, its staged items, baseline, selection,
+paste targets, compare picks and a clipboard copied from it, the policy forgets its plain-link allowance, and the grid
+reloads.
 
 ## Layout (client/grid/layout.ts, palette.ts)
 Type scale `TYPE` (body 15, secondary 13, monospace values 14, badges 12, headings 16/18) with `font(size)` for a
