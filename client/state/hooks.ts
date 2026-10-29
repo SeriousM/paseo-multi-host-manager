@@ -4,7 +4,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { Dispatch } from "react";
 import { applyRpc, docReadRpc, gridLoadRpc } from "../../shared/contracts";
 import type { BrokerPolicy } from "../../shared/contracts";
-import { DEFAULT_POLICY, brokerSettings } from "./policy";
+import { DEFAULT_POLICY, brokerSettings } from "../../shared/policy";
 import { INITIAL_STATE, mhmReducer } from "./reducer";
 import type { MhmAction } from "./reducer";
 import { applyInput, nextConfirmation } from "./staging";

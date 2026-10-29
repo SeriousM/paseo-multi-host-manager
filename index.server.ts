@@ -7,7 +7,7 @@ import { registerCompanion } from "./server/companion";
 import { applyItems } from "./server/rpc/apply";
 import { readDoc } from "./server/rpc/doc";
 import { loadGrid } from "./server/rpc/grid";
-import { brokerSettings } from "./client/state/policy";
+import { brokerSettings } from "./shared/policy";
 
 export default function contribute(server: PluginServerContext) {
   const home = paseoHome();
