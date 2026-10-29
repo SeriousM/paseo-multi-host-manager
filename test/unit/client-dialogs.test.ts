@@ -5,7 +5,8 @@ import { allOthersSelection, pasteChips } from "../../client/clipboard/paste-chi
 import { capabilityReport } from "../../client/dialogs/capability-report";
 import { lockoutLines, removalLines, trustLines } from "../../client/dialogs/confirm-text";
 import { installBlocker, parseInstallSource, pluginMenuRules, removeBlocker } from "../../client/dialogs/plugin-rules";
-import { describeItem, failureText, groupStaged, installPin, statusView, summarize } from "../../client/drawer/staging-view";
+import { describeItem, groupStaged, installPin, statusView, summarize } from "../../client/drawer/staging-view";
+import { failureText } from "../../client/state/failure-text";
 import { INITIAL_STATE, mhmReducer } from "../../client/state/reducer";
 import type { MhmAction } from "../../client/state/reducer";
 import type { GridHost, MhmState } from "../../client/state/types";

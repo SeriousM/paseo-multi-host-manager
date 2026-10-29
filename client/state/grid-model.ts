@@ -4,6 +4,7 @@ import { MASK_PLACEHOLDER } from "../../shared/mask";
 import type { Json } from "../../shared/mask";
 import { ROW_BY_ID, ROWS } from "../../shared/rows";
 import type { RowDef } from "../../shared/rows";
+import { failureText } from "./failure-text";
 import { itemOnHost } from "./staging";
 import type { CellRef, ClipboardEntry, GridHost, MhmState, StagedItem } from "./types";
 
@@ -178,8 +179,7 @@ export function outcomeText(staged: StagedItem): string {
     case "applying":
       return "applying...";
     case "ok":
-      // `unverified` arrives with the next contract revision: the patch went through but the re-read failed.
-      return outcome && "unverified" in outcome && outcome.unverified === true ? "applied, not verified - reload" : "applied";
+      return outcome?.status === "ok" && outcome.unverified === true ? "applied, not verified - reload" : "applied";
     case "unknown":
       return "result lost - reload to see the real state";
     case "ignored":
@@ -187,7 +187,7 @@ export function outcomeText(staged: StagedItem): string {
     case "skipped":
       return "skipped: an earlier change on this host failed";
     case "failed":
-      return outcome?.status === "failed" ? outcome.error.message : "failed";
+      return outcome?.status === "failed" ? failureText(outcome.error, outcome.currentRevision) : "failed";
   }
 }
 
