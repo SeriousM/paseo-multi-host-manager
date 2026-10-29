@@ -129,7 +129,8 @@ async function updatePlugin(client: DaemonClient, pluginId: string, checkOnly: b
 }
 
 /**
- * A `providers` patch only updates providers the target already has (the others come back as ignored `providers.<id>`).
+ * A `providers` patch only updates providers the target already has; the others come back as `ignoredPaths`
+ * (`providers.<id>`) of an ok outcome, or as `ignored` when the target has none of them.
  * A patch that ends the connection (relay off) may fail the verifying re-read: that is `unverified`, not a failure.
  */
 async function applyRow(client: DaemonClient, planned: MutableDaemonConfigPatch): Promise<ApplyOutcome> {
@@ -142,9 +143,10 @@ async function applyRow(client: DaemonClient, planned: MutableDaemonConfigPatch)
     patch = { providers: split.providers };
   }
   const verified = await patchConfigVerified(client, patch);
-  const ignored = [...verified.ignored, ...missing];
-  if (ignored.length > 0) return { status: "ignored", paths: ignored };
-  return verified.unverified ? { status: "ok", unverified: true } : { status: "ok" };
+  if (verified.ignored.length > 0) return { status: "ignored", paths: [...verified.ignored, ...missing] };
+  const applied: OkOutcome = verified.unverified ? { status: "ok", unverified: true } : { status: "ok" };
+  // Some providers were updated: the paste applied, the rest is reported, not a reason to call it ignored.
+  return missing.length > 0 ? { ...applied, ignoredPaths: missing } : applied;
 }
 
 async function runOperation(client: DaemonClient, planned: Planned): Promise<ApplyOutcome> {

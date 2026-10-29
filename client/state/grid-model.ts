@@ -181,8 +181,11 @@ export function outcomeText(staged: StagedItem): string {
       return staged.requires.includes("lockout") ? "staged - can cut the hub off this host" : "staged";
     case "applying":
       return "applying...";
-    case "ok":
-      return outcome?.status === "ok" && outcome.unverified === true ? "applied, not verified - reload" : "applied";
+    case "ok": {
+      if (outcome?.status !== "ok") return "applied";
+      if (outcome.ignoredPaths && outcome.ignoredPaths.length > 0) return `applied; ignored: ${outcome.ignoredPaths.join(", ")}`;
+      return outcome.unverified === true ? "applied, not verified - reload" : "applied";
+    }
     case "unknown":
       return "result lost - reload to see the real state";
     case "ignored":

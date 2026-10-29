@@ -336,6 +336,12 @@ describe("staging queue", () => {
     expect(state.writtenDocs).toEqual([]);
   });
 
+  it("shows a providers paste that updated some providers as applied, with the ignored ones", () => {
+    let state = run([hub, host("a")], { type: "stage", inputs: [{ op: "setRow", host: "reg-a", rowId: "prov", value: { x: { enabled: true } } }] }, { type: "applyStarted" });
+    state = mhmReducer(state, { type: "applyFinished", results: [{ id: "reg-a/row:prov", host: "reg-a", op: "setRow", outcome: { status: "ok", ignoredPaths: ["providers.y"] } }] });
+    expect(rowCellView(state, "prov", "a")).toMatchObject({ tone: "applied", detail: "applied; ignored: providers.y" });
+  });
+
   it("treats a lost response after switching the hub's plugins off as unknown, other transport errors as failures", () => {
     const hubOff = run([hub, host("a")], { type: "stage", inputs: [{ op: "setRow", host: "hub", rowId: "pen", value: false }, { op: "setRow", host: "reg-a", rowId: "mcp", value: false }] }, { type: "applyStarted" }, { type: "applyFailed", message: "connection closed" });
     expect(hubOff.staged.map((entry) => entry.status)).toEqual(["unknown", "unknown"]);

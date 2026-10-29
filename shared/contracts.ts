@@ -223,8 +223,10 @@ export const applyOutcomeSchema = z.discriminatedUnion("status", [
      * the link dropped before the answer came back. The next `mhm.grid.load` shows the real state.
      */
     unverified: z.boolean().optional(),
+    /** `setRow` of `providers`: the providers the target has were updated, these paths (`providers.<id>`, not on the target) were not. */
+    ignoredPaths: z.array(z.string()).optional(),
   }),
-  /** The daemon took the call but did not apply these config paths (it silently ignores unknown keys). */
+  /** Nothing was applied: the daemon ignored these config paths (it silently drops unknown keys), or none of the pasted providers exist on the target. */
   z.object({ status: z.literal("ignored"), paths: z.array(z.string()) }),
   z.object({ status: z.literal("failed"), error: hostFailureSchema, currentRevision: z.string().optional() }),
   /** Not run: an earlier item on the same host that it depends on did not succeed. */

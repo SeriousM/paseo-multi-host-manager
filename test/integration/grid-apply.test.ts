@@ -354,7 +354,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
       }
     });
 
-    it("updates only providers W already has, drops masked keys and reports the others as ignored", async () => {
+    it("updates only providers W already has, drops masked keys and reports the others as ignoredPaths", async () => {
       const [result] = await apply({
         id: "p",
         host: ids.W,
@@ -362,7 +362,7 @@ describe.skipIf(!enabled)("grid load and apply through the hub plugin", () => {
         rowId: "prov",
         value: { [KNOWN]: { enabled: false, apiKey: "<masked>" }, [ABSENT]: { enabled: true } },
       });
-      expect(result.outcome).toEqual({ status: "ignored", paths: [`providers.${ABSENT}`] });
+      expect(result.outcome).toEqual({ status: "ok", ignoredPaths: [`providers.${ABSENT}`] });
       const providers = (await dataOf("W")).rows.prov.value;
       expect(providers).toMatchObject({ [KNOWN]: { enabled: false } });
       expect(providers).not.toHaveProperty(ABSENT);

@@ -554,12 +554,12 @@ describe("setRow verification", () => {
 describe("providers paste", () => {
   const target = { providers: { claude: { enabled: true, options: { apiKey: "real-key-on-target" } } } };
 
-  it("updates only providers the target has, keeps masked keys and reports the others as ignored", async () => {
+  it("updates only providers the target has, keeps masked keys and reports the others as ignoredPaths of an ok outcome", async () => {
     const { W, session } = setup({ W: { config: target } });
     const results = await run(session, [
       { id: "p", host: "srv_W", op: "setRow", rowId: "prov", value: { claude: { enabled: false, options: { apiKey: "<masked>" } }, extra: { enabled: true } } },
     ]);
-    expect(results[0].outcome).toEqual({ status: "ignored", paths: ["providers.extra"] });
+    expect(results[0].outcome).toEqual({ status: "ok", ignoredPaths: ["providers.extra"] });
     expect(W.config.providers).toEqual({ claude: { enabled: false, options: { apiKey: "real-key-on-target" } } });
     expect(W.calls).toEqual(["getDaemonConfig", "patch:providers", "getDaemonConfig"]);
   });

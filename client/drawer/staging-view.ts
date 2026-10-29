@@ -72,6 +72,7 @@ const UPDATE_TEXT: Record<NonNullable<Extract<ApplyOutcome, { status: "ok" }>["u
 
 function okDetail(outcome: Extract<ApplyOutcome, { status: "ok" }>): string | null {
   const parts: string[] = [];
+  if (outcome.ignoredPaths && outcome.ignoredPaths.length > 0) parts.push(`applied; ignored: ${outcome.ignoredPaths.join(", ")}`);
   if (outcome.unverified) parts.push("the host dropped the connection before the change could be re-read; reload the grid to see the real state");
   if (outcome.updateOutcome) parts.push(UPDATE_TEXT[outcome.updateOutcome] + (outcome.updateOutcome === "updated" && outcome.version ? ` to ${outcome.version}` : ""));
   else if (outcome.version) parts.push(`version ${outcome.version}`);
