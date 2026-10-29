@@ -7,7 +7,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { envDir, hubSnapshot, readJson, root, secretsPath, statePath } from "./common.mjs";
+import { envDir, hubSnapshot, readJson, root, secretsPath, statePath, winDir } from "./common.mjs";
 
 const flag = process.argv.indexOf("--paseo");
 const paseo = flag === -1 ? null : process.argv[flag + 1];
@@ -50,10 +50,11 @@ let redactions = [];
 const redact = (text) => redactions.reduce((t, secret) => t.split(secret).join("***"), text);
 const tail = (text, lines = 15) => redact(text.trim().split("\n").slice(-lines).join("\n"));
 
-const CATEGORIES = ["reach", "list", "RPC", "install/remove/update", "password", "relay", "idle row", "lockout guards"];
+const CATEGORIES = ["reach", "list", "RPC", "install/remove/update", "git install", "password", "relay", "idle row", "lockout guards"];
 
 function classify(test) {
   const name = [...test.ancestorTitles, test.title].join(" > ");
+  if (test.file.endsWith("git-install.test.ts")) return "git install";
   if (/wrong-password/.test(name)) return "password";
   if (/lockout confirmation/.test(name)) return "lockout guards";
   if (/plugin lifecycle/.test(name)) return "install/remove/update";
@@ -116,7 +117,7 @@ try {
 } catch (e) {
   failureNote += `\nhub snapshot after failed: ${redact(String(e)).slice(0, 200)}`;
 }
-const gone = !fs.existsSync(envDir);
+const gone = !fs.existsSync(envDir) && !fs.existsSync(winDir);
 
 const pad = (text, width) => String(text).padEnd(width);
 console.log(`\nPaseo ${paseo ?? "default"}: W ${state?.windows?.version ?? "?"}, L ${state?.wsl?.version ?? "?"}`);

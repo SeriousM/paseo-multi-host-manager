@@ -172,6 +172,14 @@ the `beta` dist-tag before a release.
 To test an install the way the registry does it, `npm pack` and install the tarball on a hub. A
 directory install resolves modules from parent `node_modules` folders and can pass by accident.
 
+The directory installs alone are not enough: `testenv/` runs `npm ci` for them, while a Git install
+(`git:`/`github:` source, or a registry Git pin) only clones and runs the manifest's `build` step
+before Paseo bundles the checkout. That step (`npm ci --omit=dev` from `npm-shrinkwrap.json`) is what
+provides `@getpaseo/client`; without it the install fails. So the integration suite also installs the
+tracked working tree from a local Git repository on W and L, checks it runs and answers `mhm.ping`,
+and removes it. W's home lives in `~/mhm-testenv`, outside the repository, so the repository's own
+`node_modules` cannot satisfy it.
+
 CI runs typecheck, lint, unit tests, the package check, the screenshot check and a bundle compile.
 
 ## Layout
