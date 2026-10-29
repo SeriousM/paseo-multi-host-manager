@@ -3,16 +3,19 @@
 // - `laptop`: Windows daemon :6768 behind a password, reached over the relay
 // - `build-linux`: WSL Debian daemon :6769 on an older Paseo, reached over the relay
 // - `old-server`: the laptop's link with a wrong password (shows a failing host)
-// Daemons report neutral host names (demo-hostname.cjs). Our plugin runs on all three; a few public plugins, settings
-// and a settings document with a secret make the grid differ. `node testenv/down.mjs` removes all of it.
+// Daemons report neutral host names (demo-hostname.cjs). Our plugin runs on all three, installed from a local bare Git
+// repository of the checkout the way `paseo plugin add git:...` installs it, so its row shows a commit instead of "dir".
+// A few public plugins, settings and a settings document with a secret make the grid differ. `node testenv/down.mjs`
+// removes all of it.
 import { createHostClient } from "@getpaseo/client/node";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { envDir, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
-import { hubPluginDir, installLinuxPackage, installWindowsPackage, packTarball, PLUGIN_ID, waitRunning, winPluginDir } from "./plugin.mjs";
+import { pathToFileURL } from "node:url";
+import { envDir, root, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
+import { PLUGIN_ID, waitRunning } from "./plugin.mjs";
 
 const NODE_VERSION = "22.19.0";
 const WINDOWS_VERSION = "0.14.0";
@@ -48,6 +51,20 @@ export function demoHubClient() {
     localCredential: () => fs.readFileSync(path.join(hubHome, "local-credential"), "utf8").trim(),
   });
   return client.connect().then(() => client);
+}
+
+/** A bare repository whose main branch holds the checkout's tracked files as they are now, uncommitted edits included. */
+function publishCheckout() {
+  const bare = path.join(envDir, "demo-git", `${PLUGIN_ID}.git`);
+  const git = (...args) => must(run("git", args, undefined, root), `git ${args[0]}`).trim();
+  fs.rmSync(bare, { recursive: true, force: true });
+  git("init", "-q", "--bare", "--initial-branch=main", bare);
+  const commit = git("stash", "create") || git("rev-parse", "HEAD");
+  git("push", "-q", bare, `${commit}:refs/heads/main`);
+  return {
+    windows: pathToFileURL(bare).href,
+    linux: `file://${bare.replace(/^([A-Za-z]):\\/, (_, drive) => `/mnt/${drive.toLowerCase()}/`).replaceAll("\\", "/")}`,
+  };
 }
 
 /** Writes a plugin-settings document (`{version, values}`) into a daemon home. */
@@ -103,15 +120,13 @@ export async function demoUp() {
       save();
     }
 
-    const tarball = packTarball();
-    installWindowsPackage(tarball);
-    installLinuxPackage(tarball);
+    const source = publishCheckout();
     // The companion on the hub may write other plugins' documents (opt-in on that host); it is the editor's demo host.
     writeDoc(hubHome, PLUGIN_ID, "companion", { allowPluginSettingsWrites: true });
     writeDoc(hubHome, "keep-awake", "display", { mode: "display", preventSleep: true, notifyAfterMinutes: 30, webhookToken: "sk-demo-0000000000000000" });
-    await hub.installDirectoryPlugin(hubPluginDir);
-    must(windowsPaseo("laptop", "plugin", "add", winPluginDir, "--home", winHome), "install on laptop");
-    must(wsl(`${wslPaseo} plugin add ${wslDir}/plugin --home ${wslHome}`), "install on build-linux");
+    await hub.installPluginSource({ source: source.windows });
+    must(windowsPaseo("laptop", "plugin", "add", source.windows, "--home", winHome), "install on laptop");
+    must(wsl(`${wslPaseo} plugin add ${source.linux} --home ${wslHome}`), "install on build-linux");
     await waitRunning(() => hub.listPlugins());
     await sleep(8000);
 
