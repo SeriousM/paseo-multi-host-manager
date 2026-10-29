@@ -56,8 +56,8 @@ describe.each(["W", "L"] as const)("companion on %s through the hub", (key) => {
     const info = hostInfoRpc.output.parse(raw);
     expect(info.platform).toBe(platforms[key]);
     expect(info.consent).toEqual({ allowPluginSettingsWrites: false });
-    // Only paths below the user's home are reported, and then with "~"; W's home lives in the repo.
-    expect(info.paseoHome).toBe(key === "W" ? null : "~/mhm-testenv/home");
+    // Only paths below the user's home are reported, and then with "~".
+    expect(info.paseoHome).toBe(key === "W" ? "~/mhm-testenv/home-w" : "~/mhm-testenv/home");
   });
 
   it("settings.write is capability_disabled without consent", async () => {

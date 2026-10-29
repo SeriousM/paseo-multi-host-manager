@@ -9,7 +9,10 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export const envDir = path.join(root, ".testenv");
 export const statePath = path.join(envDir, "state.json");
 export const secretsPath = path.join(envDir, "secrets.json");
-export const winHome = path.join(envDir, "home-w");
+// W's home stays outside the repo: plugins installed into it would otherwise resolve modules from the repo's
+// node_modules and hide a missing dependency (a Git install on W passed while the same install on L failed).
+export const winDir = path.join(os.homedir(), "mhm-testenv");
+export const winHome = path.join(winDir, "home-w");
 export const wslDir = "~/mhm-testenv";
 export const wslHome = `${wslDir}/home`;
 // Default Windows CLI is the desktop app's. `up.mjs --paseo <version>` installs @getpaseo/cli into toolsDir and records its path in state.windows.exe.

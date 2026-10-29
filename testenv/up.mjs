@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { demoUp } from "./demo.mjs";
 import { installPlugin } from "./plugin.mjs";
-import { desktopExe, hubClient, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
+import { desktopExe, envDir, hubClient, run, secretsPath, sleep, statePath, winCliDir, winCliExe, winHome, winPaseo, wsl, wslDir, wslHome, wslPaseo } from "./common.mjs";
 
 const NODE_VERSION = "22.19.0";
 if (process.argv.includes("--demo")) {
@@ -30,6 +30,7 @@ if (fs.existsSync(statePath)) {
   console.error("testenv already up (or half-up). Run down.mjs first.");
   process.exit(1);
 }
+fs.mkdirSync(envDir, { recursive: true });
 fs.mkdirSync(winHome, { recursive: true });
 const state = { paseo: requested ?? "default", hubHosts: [], windows: { port: 6768, home: winHome, exe: requested ? winCliExe : desktopExe }, wsl: { distro: "Debian", port: 6769, home: wslHome } };
 const secrets = { windows: randomBytes(12).toString("hex"), wsl: randomBytes(12).toString("hex") };
