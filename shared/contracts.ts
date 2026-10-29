@@ -84,23 +84,44 @@ export const addedHostSchema = z.object({
 export type AddedHost = z.infer<typeof addedHostSchema>;
 
 /**
- * Saves a host on the hub's daemon (`paseo host add`), a direct action, not staged. `connection` goes to the daemon
- * only; it is never logged, stored by this plugin or returned, and failures carry fixed texts. A connection the hub
- * would reach unencrypted (`tcp-plain`) needs `allowUnencrypted`, else `insecure_link` with detail `unencrypted_link`;
- * one Paseo would not accept is `invalid_connection`. Nothing is saved in either case.
- * The call waits a few seconds for the hub's first connect, so `status` is usually settled.
+ * Saves a host on the hub's daemon (`paseo host add`), a direct action, not staged. `connection` and `password` go to
+ * the daemon only; they are never logged, stored by this plugin or returned, and failures carry fixed texts. Paseo keeps
+ * a daemon password only inside the connection, so `password` is put there (the `password` parameter; a pairing URL
+ * becomes the equivalent relay URI). A connection the hub would reach unencrypted (`tcp-plain`) needs
+ * `allowUnencrypted`, else `insecure_link` with detail `unencrypted_link`; one Paseo would not accept is
+ * `invalid_connection`, one that cannot carry a password `invalid_connection` / `password_unsupported`. Nothing is
+ * saved in those cases. The call waits a few seconds for the hub's first connect, so `status` is usually settled.
  */
 export const hostAddRpc = defineRpc({
   name: "mhm.hosts.add",
   input: brokerPolicySchema.extend({
     connection: z.string().min(1).max(8192),
     label: z.string().trim().max(80).optional(),
+    password: z.string().max(1024).optional(),
     allowUnencrypted: z.boolean().default(false),
   }),
   output: z.discriminatedUnion("ok", [z.object({ ok: z.literal(true), host: addedHostSchema }), z.object({ ok: z.literal(false), error: hostFailureSchema })]),
 });
 export type HostAddInput = z.input<typeof hostAddRpc.input>;
 export type HostAddResult = z.infer<typeof hostAddRpc.output>;
+
+/**
+ * Sets the daemon password of a saved host (`paseo host update --connection`), a direct action, not staged. The daemon
+ * never hands a saved connection back, and Paseo keeps the password inside it, so the caller passes the host's link
+ * again; the saved connection is replaced by that link with the password in it (same rules as `mhm.hosts.add`). Label
+ * and identity stay: a link to a different daemon than the one saved fails with `server_id_mismatch`. The hub itself
+ * or an unknown id is `invalid_item` (`self_target`, `unknown_host`). Waits for the reconnect like `mhm.hosts.add`.
+ */
+export const hostSetPasswordRpc = defineRpc({
+  name: "mhm.hosts.password",
+  input: brokerPolicySchema.extend({
+    registrationId: z.string().min(1).max(200),
+    connection: z.string().min(1).max(8192),
+    password: z.string().min(1).max(1024),
+    allowUnencrypted: z.boolean().default(false),
+  }),
+  output: hostAddRpc.output,
+});
 
 /**
  * Removes a saved host from the hub daemon's directory (`paseo host rm`), a direct action, not staged. It changes only
