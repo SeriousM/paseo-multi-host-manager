@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Paseo Multi-Host Manager - mockup v2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0f1115;--panel:#161922;--panel2:#1c2030;--line:#2a2f42;--tx:#e6e8ef;--mut:#8b93a7;--acc:#5b8cff;--acc2:#2d4a99;--ok:#3ecf8e;--warn:#f5b84a;--bad:#ef5a6f;--src:#7a5cff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:15px;margin:0;font-weight:600}
+header .sp{flex:1}
+.pill{padding:2px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);font-size:11px;color:var(--mut);white-space:nowrap}
+.pill.hub{color:#fff;background:var(--acc2);border-color:var(--acc)}
+button{font:inherit;color:var(--tx);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button.danger{background:#5a2530;border-color:var(--bad);color:#fff}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.sm{font-size:11px;padding:1px 7px}
+.seg{display:flex}.seg button{border-radius:0}.seg button:first-child{border-radius:6px 0 0 6px}.seg button:last-child{border-radius:0 6px 6px 0}.seg button.on{background:var(--acc2);border-color:var(--acc)}
+label.chk{display:flex;align-items:center;gap:5px;color:var(--mut);cursor:pointer}
+select,input[type=text],textarea{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+#cbar{display:flex;align-items:center;gap:12px;padding:7px 16px;background:#1a1730;border-bottom:1px solid var(--src);min-height:42px;flex-wrap:wrap}
+#cbar.empty{background:var(--panel);border-bottom:1px solid var(--line);color:var(--mut)}
+#cbar .clip{background:var(--src);color:#fff;border-radius:6px;padding:3px 10px;font-weight:600}
+#cbar label{display:flex;align-items:center;gap:4px;color:var(--mut)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:2px 9px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);cursor:pointer}
+.chip.on{border-color:var(--acc);background:var(--acc2)}
+.chip.off{opacity:.35;cursor:not-allowed}
+main{flex:1;display:flex;min-height:0}
+.wrap{flex:1;overflow:auto}
+table{border-collapse:separate;border-spacing:0;min-width:100%}
+th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0;vertical-align:top}
+thead th{position:sticky;top:0;z-index:3;background:var(--panel);text-align:left;padding:9px 11px;min-width:210px;max-width:230px}
+thead th:first-child,td.lbl,tr.sec td:first-child{position:sticky;left:0;z-index:2;min-width:270px;max-width:270px;background:var(--panel)}
+thead th:first-child{z-index:4}
+.hh{display:flex;flex-direction:column;gap:3px}
+.hh .n{font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hh .m{color:var(--mut);font-size:11px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--ok)}
+.dot.off{background:var(--bad)}
+.os{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;color:#fff}
+.os.win{background:#2b7de9}.os.mac{background:#8a8f98}.os.lnx{background:#d98e2b}
+.sec-tag{font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);cursor:default}
+.sec-tag.ok{color:var(--ok);border-color:#1f5a40}.sec-tag.warn{color:var(--warn);border-color:#5a4a20}.sec-tag.bad{color:var(--bad);border-color:#5a2530}
+.verlink{cursor:pointer;text-decoration:underline dotted}
+.banner{font-size:11px;color:var(--warn);margin-top:2px}
+.banner.bad{color:var(--bad)}
+tr.sec td{background:var(--panel2);padding:6px 11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:11px;color:var(--mut)}
+tr.sec td.hc{text-transform:none;letter-spacing:0}
+tr.sec .sbtn{display:flex;gap:5px}
+td.lbl{padding:7px 11px}
+td.lbl .t{font-weight:600;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+td.lbl .d{color:var(--mut);font-size:11px;font-family:ui-monospace,Consolas,monospace}
+.tag{font-size:10px;border-radius:4px;padding:0 5px;border:1px solid var(--line);color:var(--mut);font-weight:400}
+.tag.live{color:var(--ok);border-color:#1f5a40}.tag.reload{color:var(--acc);border-color:#2d4a99}.tag.restart{color:var(--warn);border-color:#5a4a20}.tag.lock{color:var(--bad);border-color:#5a2530}.tag.up{color:var(--warn);border-color:#5a4a20}
+.tag.en{color:var(--ok);border-color:#1f5a40}.tag.dis{color:var(--mut)}.tag.fail{color:var(--bad);border-color:#5a2530}
+td.cell{position:relative;padding:7px 11px;height:58px;outline:none}
+td.cell:focus{box-shadow:inset 0 0 0 2px var(--acc)}
+td.cell .v{font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all}
+td.cell .s{color:var(--mut);font-size:11px;margin-top:2px}
+td.cell.unreach{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(255,255,255,.025) 8px 16px)}
+td.cell.unreach .v,td.cell.unreach .s{opacity:.4}
+td.cell .acts{position:absolute;right:5px;top:5px;display:none;gap:4px;background:var(--panel2);border-radius:6px;padding:2px}
+td.cell:hover .acts,td.cell:focus .acts,td.cell.target .acts{display:flex}
+td.cell .acts button.paste,td.cell .acts button.inst{background:var(--acc);border-color:var(--acc);color:#fff}
+td.cell.src{background:rgba(122,92,255,.18);box-shadow:inset 0 0 0 2px var(--src)}
+td.cell.target{background:rgba(91,140,255,.07);outline:1px dashed var(--acc);outline-offset:-3px}
+td.cell .hint{color:var(--warn);font-size:11px}
+td.cell .hint.mut{color:var(--mut)}
+td.cell.pend{background:rgba(245,184,74,.12)}
+td.cell.applying{background:rgba(91,140,255,.25)}
+td.cell.done{background:rgba(62,207,142,.18)}
+td.cell.failed{background:rgba(239,90,111,.16)}
+.old{color:var(--mut);text-decoration:line-through;margin-right:6px}
+.new{color:var(--warn)}
+.new.rm{color:var(--bad)}
+.none{color:var(--mut);font-style:italic}
+.tog{display:inline-block;width:26px;height:14px;border-radius:99px;background:#444a5e;position:relative;vertical-align:middle;margin-right:6px}
+.tog.on{background:var(--ok)}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;background:#fff;border-radius:50%}
+.tog.on::after{left:14px}
+aside{width:290px;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:14px;flex-shrink:0}
+aside h3{margin:0 0 4px;font-size:13px}
+aside .k{color:var(--mut);font-size:11px;margin-top:10px;text-transform:uppercase;letter-spacing:.05em}
+aside pre{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;margin:4px 0;font-size:11px;overflow:auto}
+#drawer{background:var(--panel);border-top:1px solid var(--line);padding:8px 16px;display:none;max-height:42vh;overflow:auto}
+#drawer.show{display:block}
+#drawer .top{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.pi{display:grid;grid-template-columns:54px 120px 170px 1fr 26px;gap:8px;align-items:center;padding:4px 0;border-top:1px solid var(--line);font-size:12px}
+.pi .st.applying{color:var(--acc)}.pi .st.done{color:var(--ok)}.pi .st.failed{color:var(--bad)}
+.pi .x{background:none;border:none;color:var(--mut);padding:0;font-size:15px}
+.opk{font-size:10px;text-transform:uppercase;border-radius:4px;padding:0 5px;background:var(--panel2);border:1px solid var(--line)}
+.opk.install{color:var(--ok)}.opk.remove{color:var(--bad)}.opk.set,.opk.sync,.opk.edit{color:var(--warn)}.opk.toggle,.opk.update{color:var(--acc)}
+.trust{display:flex;gap:16px;flex-wrap:wrap;margin:4px 0 6px;padding:6px 8px;border:1px solid #5a4a20;border-radius:6px;background:rgba(245,184,74,.07)}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none;z-index:99}
+.legend{display:flex;gap:14px;color:var(--mut);font-size:11px;padding:5px 16px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+#modalbg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
+#modalbg.show{display:flex}
+#modal{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(620px,94vw);max-height:88vh;overflow:auto;padding:16px 18px}
+#modal h2{margin:0 0 4px;font-size:16px}
+#modal .row{display:flex;gap:8px;align-items:center;margin:6px 0}
+#modal .tgt{display:grid;grid-template-columns:22px 130px 1fr;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--line)}
+#modal .tgt.dis{opacity:.5}
+#modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+#modal .note{color:var(--mut);font-size:12px;margin:4px 0}
+#modal table{width:100%}#modal td,#modal th{padding:4px 6px;border:none;border-bottom:1px solid var(--line);min-width:0;position:static;background:transparent;text-align:left}
+.cmp{padding:14px 18px;overflow:auto;flex:1}
+.cmp .bar{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.cmp .r{display:grid;grid-template-columns:1.3fr 1fr 1fr 110px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.cmp .r.h{color:var(--mut);font-size:11px;text-transform:uppercase}
+.st2{font-size:11px;border-radius:4px;padding:0 6px;border:1px solid var(--line)}
+.st2.diff{color:var(--warn);border-color:#5a4a20}.st2.miss{color:var(--bad);border-color:#5a2530}.st2.same{color:var(--ok);border-color:#1f5a40}
+</style>
+</head>
+<body>
+<header>
+  <h1>Multi-Host Manager</h1>
+  <span class="pill hub">Hub: win-desk (this daemon)</span>
+  <span class="pill" id="hcount"></span>
+  <span class="sp"></span>
+  <span class="pill" title="Supported window: stable releases from the minimum to the newest version this plugin was tested against">Supports Paseo 0.13.0 to 0.13.2</span>
+  <label class="chk" title="Beta and other pre-release daemons: their API is not frozen. Off by default."><input type="checkbox" id="allowpre">Allow pre-release hosts</label>
+  <label class="chk" title="Block every operation to a host whose saved connection is not encrypted (plain tcp). Relay, SSH and loopback are encrypted."><input type="checkbox" id="pol" checked>Require encrypted link</label>
+  <div class="seg"><button id="vgrid" class="on">Grid</button><button id="vcomp">Compact (phone)</button></div>
+  <button id="addhost">Add host</button>
+  <button id="refresh">Refresh</button>
+</header>
+<div id="cbar" class="empty"></div>
+<main>
+  <div class="wrap" id="wrap"><table id="grid"></table></div>
+  <aside id="insp"><h3>Inspector</h3><div style="color:var(--mut)">Click a cell or a host header. Copy / Paste with the buttons, or Ctrl+C / Ctrl+V on a focused cell (web and desktop). Esc clears the clipboard.</div></aside>
+</main>
+<div id="drawer"></div>
+<div class="legend">
+  <span><i style="background:var(--src)"></i>copied source</span>
+  <span><i style="background:var(--acc)"></i>valid target</span>
+  <span><i style="background:var(--warn)"></i>staged</span>
+  <span><i style="background:var(--ok)"></i>applied</span>
+  <span><i style="background:var(--bad)"></i>failed</span>
+  <span>Nothing is written until Apply. All calls go hub daemon to host over that host's own saved connection (relay E2EE, SSH, or tcp+password).</span>
+</div>
+<div id="toast"></div>
+<div id="modalbg"><div id="modal"></div></div>
+
+<script>
+/* ---------- versions and capabilities (see CAPABILITIES.md) ---------- */
+const SUPPORT={min:'0.13.0',target:'0.13.2'};
+const isPre=h=>h.ver.includes('-');
+const cmp=(a,b)=>{const x=a.split('-')[0].split('.').map(Number),y=b.split('-')[0].split('.').map(Number);for(let i=0;i<3;i++){const p=x[i]||0,q=y[i]||0;if(p!==q)return p>q?1:-1}return 0};
+const FLAG_SINCE={connectedHosts:'0.13.0',hostMultiplexing:'0.13.0',plugins:'0.8.0',pluginManagement:'0.8.0',pluginSettings:'0.8.0',pluginSourceInstallation:'0.9.0',pluginSourceUpdates:'0.9.0',daemonConfigReload:'0.8.0',relayConfig:'0.8.0'};
+const FLAG_NEED={connectedHosts:'Hub can route to saved hosts',hostMultiplexing:'Host reachable through a hub',plugins:'Plugins exist',pluginManagement:'List / enable / disable / remove plugins',pluginSourceInstallation:'Install plugins from a source',pluginSourceUpdates:'Update plugins',pluginSettings:'Plugin settings documents',daemonConfigReload:'Reload config without restart',relayConfig:'Relay configuration'};
+const hasFlag=(h,f)=>cmp(h.ver,FLAG_SINCE[f])>=0;
+
+/* ---------- hosts ---------- */
+const hosts=[
+ {id:'hub',name:'win-desk',hub:true,os:'win',osName:'Windows 11',ver:'0.13.2',home:'C:\\Users\\user',sep:'\\',status:'online',npm:true,conn:{kind:'local',desc:'loopback, local credential'}},
+ {id:'lin',name:'linux-box',os:'lnx',osName:'Debian 12',ver:'0.13.2',home:'/home/user',sep:'/',status:'online',npm:false,conn:{kind:'relay',desc:'relay.paseo.sh:443'}},
+ {id:'bld',name:'build-vm',os:'lnx',osName:'Ubuntu 24.04',ver:'0.13.0',home:'/home/ci',sep:'/',status:'online',npm:true,conn:{kind:'relay',desc:'relay.eu.example.dev:443'}},
+ {id:'nas',name:'lan-nas',os:'lnx',osName:'Debian 12',ver:'0.13.1',home:'/volume1/homes/admin',sep:'/',status:'online',npm:true,conn:{kind:'tcp',desc:'192.168.1.20:6767 + password'}},
+ {id:'old',name:'old-laptop',os:'win',osName:'Windows 10',ver:'0.12.1',home:'C:\\Users\\user',sep:'\\',status:'online',npm:true,conn:{kind:'relay',desc:'relay.paseo.sh:443'}},
+ {id:'dev',name:'dev-laptop',os:'win',osName:'Windows 11',ver:'0.14.0-beta.2',home:'C:\\Users\\dev',sep:'\\',status:'online',npm:true,conn:{kind:'relay',desc:'relay.paseo.sh:443'}},
+ {id:'pi',name:'pi-garage',os:'lnx',osName:'Debian 12 arm64',ver:'0.13.2',home:'/home/pi',sep:'/',status:'error',npm:true,conn:{kind:'ssh',desc:'ssh://pi@garage'},error:{code:'authentication_failed',message:'Host rejected the credentials. Replace the connection credentials.'}}
+];
+const H=Object.fromEntries(hosts.map(h=>[h.id,h]));
+const OSN={win:'Windows',mac:'macOS',lnx:'Linux'};
+const CONN_TAG={local:['ok','loopback'],relay:['ok','relay E2EE'],ssh:['ok','SSH tunnel'],tcp:['warn','tcp unencrypted']};
+const state={policyEnc:true,allowPre:false,view:'grid'};
+function reach(h){
+  if(h.hub)return{ok:true};
+  if(h.status==='error')return{ok:false,kind:'auth',why:h.error.message};
+  if(isPre(h)&&!state.allowPre)return{ok:false,kind:'pre',why:'Pre-release Paseo '+h.ver+' is not supported (API not frozen). Enable "Allow pre-release hosts" to manage it at your own risk.'};
+  if(!hasFlag(h,'hostMultiplexing'))return{ok:false,kind:'ver',why:'Needs Paseo 0.13+ (hostMultiplexing). Host reports '+h.ver+'.'};
+  if(state.policyEnc&&h.conn.kind==='tcp')return{ok:false,kind:'sec',why:'Blocked by policy: link is plain tcp (password only, not encrypted).'};
+  return{ok:true};
+}
+
+/* ---------- settings rows ---------- */
+const settingRows=[
+ {id:'ver',label:'Paseo version',key:'server_info.version',type:'text',ro:true},
+ {id:'osn',label:'Operating system',key:'server_info',type:'text',ro:true},
+ {id:'listen',label:'Listen address',key:'daemon.listen',type:'text',ro:true,note:'host-specific'},
+ {id:'conn',label:'Saved connection',key:'hub hosts.json',type:'text',ro:true,note:'host-specific'},
+ {id:'relay',label:'Relay enabled',key:'daemon.relay.enabled',type:'bool',mode:'reload',needs:['relayConfig','daemonConfigReload'],sens:true},
+ {id:'mcp',label:'Inject Paseo MCP into agents',key:'daemon.mcp.injectIntoAgents',type:'bool',mode:'live'},
+ {id:'browser',label:'Browser tools',key:'daemon.browserTools.enabled',type:'bool',mode:'live'},
+ {id:'hooks',label:'Terminal agent hooks',key:'daemon.enableTerminalAgentHooks',type:'bool',mode:'live'},
+ {id:'autoarch',label:'Auto-archive after merge',key:'autoArchiveAfterMerge',type:'bool',mode:'live'},
+ {id:'sys',label:'Append system prompt',key:'appendSystemPrompt',type:'text',mode:'live'},
+ {id:'prov',label:'Custom providers',key:'agents.providers',type:'text',mode:'live',note:'binary paths excluded'},
+ {id:'idle',label:'Release idle agents',key:'agents.idleRuntimeCleanup',type:'bool',mode:'reload',needs:['daemonConfigReload']},
+ {id:'wt',label:'Worktree root',key:'worktrees.root',type:'path',mode:'restart'},
+ {id:'log',label:'Console log level',key:'log.console.level',type:'text',mode:'restart'},
+ {id:'pen',label:'Plugins enabled (global switch)',key:'pluginsEnabled',type:'bool',mode:'reload',needs:['daemonConfigReload'],sens:true},
+ {id:'pw',label:'Daemon password',key:'daemon.auth.password',type:'text',never:true},
+ {id:'rc',label:'Plugin registry credentials',key:'pluginRegistries',type:'text',never:true}
+];
+const S={
+ ver:{},osn:{},listen:{hub:'127.0.0.1:6767',lin:'127.0.0.1:6767',bld:'0.0.0.0:6767',nas:'192.168.1.20:6767',old:'127.0.0.1:6767',pi:'127.0.0.1:6767'},conn:{},
+ relay:{hub:true,lin:true,bld:true,nas:false,old:true,pi:true},
+ mcp:{hub:true,lin:true,bld:false,nas:true,old:true,pi:true},
+ browser:{hub:false,lin:false,bld:false,nas:true,old:false,pi:false},
+ hooks:{hub:true,lin:true,bld:true,nas:false,old:true,pi:true},
+ autoarch:{hub:false,lin:true,bld:false,nas:false,old:false,pi:true},
+ sys:{hub:'Prefer small commits.',lin:'Prefer small commits.',bld:'(empty)',nas:'(empty)',old:'Prefer small commits.',pi:'Be concise.'},
+ prov:{hub:'2 defined',lin:'1 defined',bld:'none',nas:'none',old:'2 defined',pi:'none'},
+ idle:{hub:true,lin:true,bld:true,nas:true,old:true,pi:false},
+ wt:{hub:'C:\\Users\\user\\.paseo\\worktrees',lin:'/home/user/.paseo/worktrees',bld:'/mnt/fast/paseo-worktrees',nas:'/volume1/paseo/wt',old:'C:\\Users\\user\\.paseo\\worktrees',pi:'/home/pi/.paseo/worktrees'},
+ log:{hub:'info',lin:'info',bld:'warn',nas:'info',old:'info',pi:'debug'},
+ pen:{hub:true,lin:true,bld:false,nas:true,old:true,pi:true},
+ pw:{hub:'set',lin:'set',bld:'set',nas:'set',old:'set',pi:'set'},
+ rc:{hub:'1 registry',lin:'none',bld:'none',nas:'none',old:'none',pi:'none'}
+};
+hosts.forEach(h=>{S.ver[h.id]=h.ver;S.osn[h.id]=h.osName;S.conn[h.id]=h.conn.desc});
+
+/* ---------- plugin rows ---------- */
+const pluginRows=[
+ {id:'p_mhm',plugin:true,label:'multi-host-manager',desc:'this plugin',kind:'registry',src:'example/multi-host-manager',latest:'0.1.0',req:'0.13.0',cloneable:true,required:true,settings:['views']},
+ {id:'p_keep',plugin:true,label:'keep-awake',desc:'npm via registry',kind:'npm',src:'hichamboushaba/keep-awake',latest:'0.1.3',req:'0.9.0',cloneable:true,settings:['mode']},
+ {id:'p_mer',plugin:true,label:'mermaid',desc:'npm via registry',kind:'npm',src:'dutchakdev/mermaid',latest:'1.4.0',req:'0.9.0',cloneable:true,settings:[]},
+ {id:'p_cache',plugin:true,label:'cache-meter',desc:'git, needs Paseo >=0.13.2',kind:'git',src:'sbhas2k/cache-meter',latest:'a41f9c2',req:'0.13.2',cloneable:true,settings:['pill']},
+ {id:'p_qp',plugin:true,label:'quick-prompts',desc:'npm via registry, has settings',kind:'npm',src:'kingsleydon/quick-prompts',latest:'0.6.0',req:'0.9.0',cloneable:true,settings:['prompts']},
+ {id:'p_mon',plugin:true,label:'host-monitor',desc:'git',kind:'git',src:'a31521424/host-monitor',latest:'7c2e8d0',req:'0.9.0',cloneable:true,settings:[]},
+ {id:'p_az',plugin:true,label:'paseo-azdevopsplugin',desc:'local directory source',kind:'directory',src:'C:\\dev\\_paseo\\AzDevOpsPlugin',latest:'-',req:'0.9.0',cloneable:false,settings:['org']}
+];
+const DOC_BASE={
+ p_mhm:{id:'views',ver:1,vals:[['defaultView','Grid','text'],['confirmRemovals',true,'bool']]},
+ p_keep:{id:'display',ver:1,vals:[['mode','display','text'],['preventSleep',true,'bool']]},
+ p_qp:{id:'prompts',ver:1,vals:[['prompts','[9 items]','json'],['showInComposer',true,'bool']]},
+ p_cache:{id:'pill',ver:2,vals:[['showPill',true,'bool'],['warnBelowPercent','60','text']]},
+ p_az:{id:'org',ver:1,vals:[['organization','contoso','text'],['project','payments','text'],['token','','secret']]}
+};
+const DOCS={};Object.keys(DOC_BASE).forEach(k=>{DOCS[k]={};hosts.forEach(h=>{DOCS[k][h.id]=JSON.parse(JSON.stringify(DOC_BASE[k].vals))})});
+DOCS.p_qp.lin[0][1]='[4 items]';DOCS.p_keep.bld[0][1]='system';DOCS.p_cache.lin[1][1]='80';
+const mk=(rev,st,en,s)=>({rev,status:st||'running',en:en!==false,set:s||0});
+const P={
+ p_mhm:{hub:mk('0.1.0'),lin:mk('0.1.0'),bld:mk('0.1.0'),nas:mk('0.0.9'),old:null,pi:mk('0.1.0')},
+ p_keep:{hub:mk('0.1.3',0,0,2),lin:null,bld:mk('0.1.2',0,0,2),nas:mk('0.1.3',0,0,2),old:mk('0.1.1',0,0,2),pi:null},
+ p_mer:{hub:mk('1.4.0'),lin:mk('1.4.0'),bld:null,nas:null,old:mk('1.3.2'),pi:null},
+ p_cache:{hub:mk('a41f9c2',0,0,3),lin:mk('a41f9c2',0,0,3),bld:null,nas:null,old:null,pi:null},
+ p_qp:{hub:mk('0.6.0',0,0,9),lin:mk('0.5.2',0,0,4),bld:null,nas:null,old:mk('0.5.0',0,0,2),pi:mk('0.6.0',0,0,9)},
+ p_mon:{hub:mk('7c2e8d0'),lin:mk('7c2e8d0','disabled',false),bld:null,nas:null,old:null,pi:mk('6b11a0f','failed')},
+ p_az:{hub:mk('-',0,0,5),lin:null,bld:null,nas:null,old:null,pi:null}
+};
+Object.keys(S).forEach(k=>{if(!('dev' in S[k]))S[k].dev=JSON.parse(JSON.stringify(S[k].lin))});
+S.wt.dev='C:\\Users\\dev\\.paseo\\worktrees';S.sys.dev='(empty)';
+Object.keys(P).forEach(k=>{P[k].dev=JSON.parse(JSON.stringify(P[k].lin))});
+const rowById={};[...settingRows,...pluginRows].forEach(r=>rowById[r.id]=r);
+const getV=(r,h)=>r.plugin?P[r.id][h]:S[r.id][h];
+const setV=(r,h,v)=>{if(r.plugin)P[r.id][h]=v;else S[r.id][h]=v};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- state ---------- */
+let clip=null,opts={ver:true,cfg:true},sel=new Set(),pend=[],focus=null,applying=false;
+let trust={inst:false,rem:false};
+let cmpState={dst:'hub',src:'lin'};
+const restartPending={};
+
+/* ---------- path adaptation ---------- */
+const toTpl=(v,src)=>v.startsWith(src.home)?'~'+v.slice(src.home.length).replaceAll('\\','/'):v.replaceAll('\\','/');
+const fromTpl=(t,dst)=>t.startsWith('~')?dst.home+(dst.sep==='\\'?t.slice(1).replaceAll('/','\\'):t.slice(1)):t;
+
+/* ---------- eligibility ---------- */
+const stagedPen=h=>{const p=pend.find(x=>x.row==='pen'&&x.host===h.id);return p?p.nv:S.pen[h.id]};
+function pluginBlock(row,h,op){
+  const r=reach(h);if(!r.ok)return r.why;
+  if(op==='install'){
+    if(!row.cloneable)return 'Local directory source: files exist only on the source host';
+    if(cmp(h.ver,row.req)<0)return 'Plugin requires Paseo >='+row.req+'; host is '+h.ver;
+    if(!hasFlag(h,'pluginSourceInstallation'))return 'Host lacks pluginSourceInstallation (needs 0.9+)';
+    if(!stagedPen(h))return 'Plugins are switched off on this host (stage "Plugins enabled" first)';
+  }
+  if(op==='update'&&!hasFlag(h,'pluginSourceUpdates'))return 'Host lacks pluginSourceUpdates (needs 0.9+)';
+  if((op==='remove'||op==='toggle')&&!hasFlag(h,'pluginManagement'))return 'Host lacks pluginManagement';
+  return null;
+}
+function editSupport(row,h,v){
+  if(!v)return{ok:false,why:'not installed'};
+  if(!DOC_BASE[row.id])return{ok:false,why:'plugin stores no settings document'};
+  const c=P.p_mhm[h.id];
+  if(!c)return{ok:false,why:'multi-host-manager is not installed on this host'};
+  if(cmp(c.rev,'0.1.0')<0)return{ok:false,why:'needs multi-host-manager >= 0.1.0 on this host (has '+c.rev+')'};
+  return{ok:true,doc:DOC_BASE[row.id]};
+}
+function evalPaste(srcRowId,srcHostId,dstRowId,dstHostId){
+  const sr=rowById[srcRowId],dr=rowById[dstRowId],sh=H[srcHostId],dh=H[dstHostId];
+  const rc=reach(dh);if(!rc.ok)return{ok:false,why:rc.why};
+  if(sr.plugin!==dr.plugin)return{ok:false,why:'type mismatch'};
+  const src=getV(sr,srcHostId),cur=getV(dr,dstHostId);
+  if(!sr.plugin){
+    if(srcRowId!==dstRowId)return{ok:false,why:'different setting'};
+    if(dr.ro)return{ok:false,why:'read-only'};
+    if(dr.never)return{ok:false,why:'never copied (secret)'};
+    for(const f of dr.needs||[])if(!hasFlag(dh,f))return{ok:false,why:'host lacks '+f};
+    let nv=src,note=dr.mode==='restart'?'needs daemon restart':dr.mode==='reload'?'applied with config reload':'applied live (config.patch)';
+    if(dr.type==='path'){nv=fromTpl(toTpl(src,sh),dh);if(sh.os!==dh.os||sh.home!==dh.home)note='path adapted to '+OSN[dh.os]+'; '+note}
+    if(JSON.stringify(nv)===JSON.stringify(cur))return{ok:false,same:true,why:'identical'};
+    return{ok:true,op:'set',nv,note};
+  }
+  if(!src)return{ok:false,why:'source not installed'};
+  if(srcRowId!==dstRowId)return{ok:false,why:'copy within the same plugin row'};
+  if(srcHostId===dstHostId)return{ok:false,same:true,why:'source'};
+  if(!cur){
+    const b=pluginBlock(dr,dh,'install');if(b)return{ok:false,why:b};
+    const rev=dr.kind==='registry'||dr.kind==='npm'?(opts.ver&&dr.kind==='npm'?src.rev:dr.latest):src.rev;
+    const pin=dr.kind==='registry'?'registry-approved revision (cannot pin)':dr.kind==='npm'?'npm pinned to '+rev:'git ref '+rev;
+    return{ok:true,op:'install',nv:{rev,status:'running',en:src.en,set:opts.cfg?src.set:0},note:'install from '+dr.src+', '+pin+(opts.cfg&&src.set?'; copy settings ('+src.set+' keys, secrets excluded)':'')};
+  }
+  const nv=clone(cur),notes=[];
+  if(opts.ver&&cur.rev!==src.rev&&dr.cloneable){const b=pluginBlock(dr,dh,'update');if(!b){nv.rev=dr.kind==='registry'?dr.latest:src.rev;notes.push((cmp(nv.rev.replace(/[^0-9.]/g,'')||'0',cur.rev.replace(/[^0-9.]/g,'')||'0')>=0?'update ':'change ')+cur.rev+' to '+nv.rev)}}
+  if(opts.cfg&&src.set&&hasFlag(dh,'pluginSettings')&&cur.set!==src.set){nv.set=src.set;notes.push('settings document copied ('+src.set+' keys, secrets excluded), plugin reload')}
+  if(!notes.length)return{ok:false,same:true,why:'identical'};
+  return{ok:true,op:'sync',nv,note:notes.join('; ')};
+}
+const evalCell=(rid,hid)=>clip&&clip.kind==='cell'?evalPaste(clip.row,clip.host,rid,hid):null;
+const stagedIdx=(row,host)=>pend.findIndex(p=>p.row===row&&p.host===host);
+function stage(row,host,e){const i=stagedIdx(row,host),x={row,host,op:e.op,nv:e.nv,note:e.note,st:'pending'};if(i>=0)pend[i]=x;else pend.push(x)}
+function pasteCell(rid,hid){const r=evalCell(rid,hid);if(!r||!r.ok){toast(r?r.why:'Nothing copied');return}stage(rid,hid,r);render()}
+function pasteMulti(){if(!clip||clip.kind!=='cell')return;let n=0;[...sel].forEach(h=>{const r=evalPaste(clip.row,clip.host,clip.row,h);if(r.ok){stage(clip.row,h,r);n++}});sel.clear();render();toast(n+' change(s) staged in sequence')}
+function pasteSection(sec,hid){
+  if(!clip||clip.kind!=='section'||clip.host===hid)return;let n=0;
+  (sec==='s'?settingRows:pluginRows).forEach(r=>{const x=evalPaste(r.id,clip.host,r.id,hid);if(x.ok){stage(r.id,hid,x);n++}});
+  render();toast(n+' change(s) staged for '+H[hid].name);
+}
+
+/* ---------- plugin actions (menu) ---------- */
+function stageToggle(rid,hid){const row=rowById[rid],cur=getV(row,hid),b=pluginBlock(row,H[hid],'toggle');if(b){toast(b);return}
+  const nv=clone(cur);nv.en=!cur.en;nv.status=nv.en?'running':'disabled';stage(rid,hid,{op:'toggle',nv,note:nv.en?'enable':'disable'});render()}
+function stageUpdate(rid,hid){const row=rowById[rid],cur=getV(row,hid),b=pluginBlock(row,H[hid],'update');if(b){toast(b);return}
+  if(cur.rev===row.latest){toast('Already at '+row.latest);return}if(!row.cloneable){toast('Directory sources: edit the directory and reload');return}
+  const nv=clone(cur);nv.rev=row.latest;stage(rid,hid,{op:'update',nv,note:'update '+cur.rev+' to '+row.latest});render()}
+function openMenu(rid,hid){
+  const row=rowById[rid],cur=getV(row,hid),h=H[hid];
+  let b='<h2>'+esc(row.label)+' on '+esc(h.name)+'</h2><div class="note">'+esc(h.osName)+' - '+(cur?'v'+esc(cur.rev)+' ('+cur.status+')':'not installed')+'</div><div class="row" style="flex-direction:column;align-items:stretch">';
+  if(cur){
+    const isReq=row.required&&h.hub;
+    const sp=reach(h).ok?editSupport(row,h,cur):{ok:false,why:reach(h).why};
+    if(sp.ok)b+='<button data-m="edit">Edit settings ('+esc(sp.doc.id)+')...</button>';
+    else b+='<button disabled title="'+esc(sp.why)+'">Edit settings ('+esc(sp.why)+')</button>';
+    b+='<button data-m="toggle">'+(cur.en?'Disable':'Enable')+' plugin</button>';
+    b+='<button data-m="update" '+(cur.rev===row.latest||!row.cloneable?'disabled':'')+'>Update to '+esc(row.latest)+'</button>';
+    b+='<button class="danger" data-m="remove" '+(isReq?'disabled':'')+'>Remove from '+esc(h.name)+(isReq?' (required by this view)':'')+'</button>';
+  }else b+='<button class="primary" data-m="install">Install on '+esc(h.name)+'...</button>';
+  b+='</div><div class="foot"><button data-m="close">Close</button></div>';
+  showModal(b,e=>{const m=e.target.dataset.m;if(!m)return;if(m==='close'){hideModal();return}
+    hideModal();if(m==='toggle')stageToggle(rid,hid);else if(m==='update')stageUpdate(rid,hid);else if(m==='remove')openRemove(rid,hid);else if(m==='install')openInstall(rid,hid);else if(m==='edit')openEdit(rid,hid)})
+}
+
+/* ---------- install / remove modals ---------- */
+function openInstall(rid,preHost){
+  const row=rowById[rid],installed=hosts.filter(h=>getV(row,h.id));
+  const srcHost=installed.find(h=>reach(h).ok)||installed[0];
+  let m={sel:new Set(preHost?[preHost]:[]),copy:true,ver:'src'};
+  const draw=()=>{
+    let b='<h2>Install '+esc(row.label)+'</h2>';
+    b+='<div class="note">Source: <span class="tag">'+row.kind+'</span> <code>'+esc(row.src)+'</code> (taken from '+(srcHost?esc(srcHost.name):'a host')+')</div>';
+    b+='<div class="note">'+(row.kind==='registry'||row.kind==='npm'?'Installed via the plugin registry: the registry-approved revision ('+esc(row.latest)+') is installed. A specific version cannot be pinned for registry installs.':row.kind==='git'?'Git source: pinned to the commit on '+(srcHost?esc(srcHost.name):'the source')+' (or the default branch head).':'Local directory source: cannot be installed on another host.')+'</div>';
+    b+='<div class="row"><label class="chk"><input type="checkbox" data-o="copy" '+(m.copy?'checked':'')+'>Also copy settings document from '+(srcHost?esc(srcHost.name):'source')+' ('+(getV(row,srcHost?srcHost.id:'hub')?.set||0)+' keys, secrets excluded)</label></div>';
+    b+='<div style="margin-top:8px;font-weight:600">Target hosts</div>';
+    hosts.forEach(h=>{
+      const cur=getV(row,h.id),blk=!reach(h).ok?reach(h).why:cur?'already installed (v'+cur.rev+')':pluginBlock(row,h,'install');
+      b+='<div class="tgt '+(blk?'dis':'')+'"><input type="checkbox" data-t="'+h.id+'" '+(blk?'disabled':'')+(m.sel.has(h.id)?' checked':'')+'><span>'+esc(h.name)+' <span class="os '+h.os+'">'+OSN[h.os].slice(0,3).toUpperCase()+'</span></span><span class="note">'+(blk?esc(blk):'ready - via '+esc(CONN_TAG[h.conn.kind][1])+(row.kind!=='git'&&!h.npm?' (npm not found on host: will fail at apply)':''))+'</span></div>';
+    });
+    b+='<div class="foot"><button data-a="cancel">Cancel</button><button class="primary" data-a="go" '+(m.sel.size?'':'disabled')+'>Stage install on '+m.sel.size+' host(s)</button></div>';
+    return b;
+  };
+  const handler=e=>{
+    const t=e.target;
+    if(t.dataset.t){m.sel.has(t.dataset.t)?m.sel.delete(t.dataset.t):m.sel.add(t.dataset.t);showModal(draw(),handler);return}
+    if(t.dataset.o==='copy'){m.copy=t.checked;showModal(draw(),handler);return}
+    if(t.dataset.a==='cancel'){hideModal();return}
+    if(t.dataset.a==='go'){
+      m.sel.forEach(hid=>{const h=H[hid];const s=srcHost?getV(row,srcHost.id):null;
+        stage(rid,hid,{op:'install',nv:{rev:row.kind==='git'&&s?s.rev:row.latest,status:'running',en:true,set:m.copy&&s?s.set:0},note:'install from '+row.src+(m.copy&&s&&s.set?'; copy '+s.set+' settings':'')})});
+      hideModal();render();toast('Install staged on '+m.sel.size+' host(s)');
+    }
+  };
+  showModal(draw(),handler);
+}
+function openRemove(rid,preHost){
+  const row=rowById[rid];let sl=new Set(preHost?[preHost]:[]);
+  const draw=()=>{
+    let b='<h2>Remove '+esc(row.label)+'</h2><div class="note">Stops the plugin, deletes its managed files and its settings documents on the selected hosts.'+(row.kind==='directory'?' The source directory itself is kept.':'')+'</div>';
+    hosts.forEach(h=>{
+      const cur=getV(row,h.id),blk=!cur?'not installed':(row.required&&h.hub)?'required by this view':pluginBlock(row,h,'remove');
+      b+='<div class="tgt '+(blk?'dis':'')+'"><input type="checkbox" data-t="'+h.id+'" '+(blk?'disabled':'')+(sl.has(h.id)?' checked':'')+'><span>'+esc(h.name)+'</span><span class="note">'+(blk?esc(blk):'v'+esc(cur.rev)+' '+cur.status)+'</span></div>';
+    });
+    b+='<div class="foot"><button data-a="cancel">Cancel</button><button class="danger" data-a="go" '+(sl.size?'':'disabled')+'>Stage removal on '+sl.size+' host(s)</button></div>';
+    return b;
+  };
+  const handler=e=>{
+    const t=e.target;
+    if(t.dataset.t){sl.has(t.dataset.t)?sl.delete(t.dataset.t):sl.add(t.dataset.t);showModal(draw(),handler);return}
+    if(t.dataset.a==='cancel'){hideModal();return}
+    if(t.dataset.a==='go'){sl.forEach(hid=>stage(rid,hid,{op:'remove',nv:null,note:'remove plugin and its settings'}));hideModal();render();toast('Removal staged on '+sl.size+' host(s)')}
+  };
+  showModal(draw(),handler);
+}
+function openEdit(rid,hid){
+  const row=rowById[rid],h=H[hid],doc=DOC_BASE[rid],orig=DOCS[rid][hid];
+  let b='<h2>Edit settings: '+esc(row.label)+' on '+esc(h.name)+'</h2>';
+  b+='<div class="note">Document <code>'+esc(doc.id)+'</code> (schema v'+doc.ver+'), stored on '+esc(h.name)+' under <code>plugin-settings/'+esc(row.label)+'/</code>. Read and written by the multi-host-manager instance on that host.</div>';
+  b+='<table><tr><th style="width:34%">Key</th><th>Value</th></tr>';
+  orig.forEach((f,i)=>{
+    let inp;
+    if(f[2]==='bool')inp='<input type="checkbox" data-k="'+i+'" '+(f[1]?'checked':'')+'>';
+    else if(f[2]==='secret')inp='<input type="text" data-k="'+i+'" style="width:100%" placeholder="******** (set; type to replace, empty keeps it)">';
+    else inp='<input type="text" data-k="'+i+'" style="width:100%" value="'+esc(f[1])+'">';
+    b+='<tr><td><code>'+esc(f[0])+'</code> '+(f[2]==='secret'?'<span class="tag lock">secret</span>':'')+'</td><td>'+inp+'</td></tr>';
+  });
+  b+='</table><div class="note">Secrets are never displayed or copied between hosts; a typed value only replaces the stored one. The plugin validates the document against its own schema when it reloads. If it reports the data invalid, the previous document is restored.</div>';
+  b+='<div class="foot"><button data-a="cancel">Cancel</button><button class="primary" data-a="go">Stage changes</button></div>';
+  showModal(b,e=>{
+    if(e.target.dataset.a==='cancel'){hideModal();return}
+    if(e.target.dataset.a!=='go')return;
+    const changes={};
+    document.querySelectorAll('#modal [data-k]').forEach(inp=>{
+      const f=orig[+inp.dataset.k],nv=f[2]==='bool'?inp.checked:inp.value;
+      if(f[2]==='secret'){if(nv!=='')changes[f[0]]={to:'(replaced)',secret:true}}
+      else if(nv!==f[1])changes[f[0]]={from:f[1],to:nv};
+    });
+    const n=Object.keys(changes).length;if(!n){toast('No changes');return}
+    const i=stagedIdx(rid,hid),note='edit '+n+' settings value(s): '+Object.keys(changes).join(', ')+'; plugin reload';
+    if(i>=0){pend[i].edit=changes;pend[i].note=(pend[i].note?pend[i].note+'; ':'')+note}
+    else pend.push({row:rid,host:hid,op:'edit',nv:clone(getV(row,hid)),note,edit:changes,st:'pending'});
+    hideModal();render();toast('Settings change staged');
+  });
+}
+function openCaps(hid){
+  const h=H[hid];
+  let b='<h2>'+esc(h.name)+' - capabilities</h2><div class="note">Paseo '+esc(h.ver)+'. At runtime these come from the host\'s own <code>server_info.features</code>; the table is the fallback.</div><table><tr><th>Needed for</th><th>Flag</th><th>Since</th><th></th></tr>';
+  Object.keys(FLAG_NEED).forEach(f=>{const ok=hasFlag(h,f);b+='<tr><td>'+FLAG_NEED[f]+'</td><td><code>'+f+'</code></td><td>'+FLAG_SINCE[f]+'</td><td style="color:var(--'+(ok?'ok':'bad')+')">'+(ok?'yes':'missing')+'</td></tr>'});
+  b+='</table><div class="note">Connection: '+esc(h.conn.desc)+' ('+esc(CONN_TAG[h.conn.kind][1])+')</div><div class="foot"><button data-a="close">Close</button></div>';
+  showModal(b,e=>{if(e.target.dataset.a==='close')hideModal()});
+}
+function openAddHost(){
+  let tab='relay';
+  const draw=()=>{
+    const hints={relay:'Paste the pairing link from the target host (Settings > Pair a device, or <code>paseo daemon pair</code>). The link carries that host\'s own relay endpoint and public key, so different relays per host just work. Traffic is end-to-end encrypted.',
+      ssh:'Uses your local OpenSSH client with key or agent. Encrypted tunnel. The daemon is expected on the remote loopback.',
+      tcp:'Direct address. A password protects access but does NOT encrypt traffic. Use only over a VPN (Tailscale) or loopback; the security policy blocks it otherwise.'};
+    const ph={relay:'https://app.paseo.sh/#offer=...',ssh:'ssh://user@host',tcp:'tcp://100.101.102.103:6767'};
+    return '<h2>Add host to this hub</h2><div class="seg" style="margin:6px 0"><button data-tab="relay" class="'+(tab==='relay'?'on':'')+'">Relay pairing link</button><button data-tab="ssh" class="'+(tab==='ssh'?'on':'')+'">SSH</button><button data-tab="tcp" class="'+(tab==='tcp'?'on':'')+'">Direct TCP</button></div>'+
+      '<div class="note">'+hints[tab]+'</div><div class="row"><input type="text" style="flex:1" placeholder="'+ph[tab]+'"></div><div class="row"><input type="text" style="flex:1" placeholder="Label"><input type="text" placeholder="Daemon password (if set)" style="flex:1"></div>'+
+      '<div class="note">Saved with <code>paseo.hosts.add</code>. Paseo keeps the connection string, including any password, in this daemon\'s <code>hosts.json</code> in plain text. This plugin never stores or copies credentials.</div>'+
+      '<div class="foot"><button data-a="cancel">Cancel</button><button class="primary" data-a="go">Save host</button></div>';
+  };
+  const handler=e=>{const t=e.target;if(t.dataset.tab){tab=t.dataset.tab;showModal(draw(),handler)}else if(t.dataset.a==='cancel')hideModal();else if(t.dataset.a==='go'){hideModal();toast('Mock: host would be saved on the hub daemon')}};
+  showModal(draw(),handler);
+}
+
+/* ---------- apply ---------- */
+const PRIO={set:0,install:1,sync:2,update:2,edit:3,toggle:3,remove:4};
+async function applyAll(){
+  if(applying||!pend.length)return;applying=true;
+  pend.forEach(p=>{if(p.st==='failed')p.st='pending'});
+  pend.sort((a,b)=>hosts.findIndex(h=>h.id===a.host)-hosts.findIndex(h=>h.id===b.host)||PRIO[a.op]-PRIO[b.op]);
+  render();
+  for(const p of pend){
+    if(p.st==='done')continue;
+    p.st='applying';render();await new Promise(r=>setTimeout(r,650));
+    const row=rowById[p.row],h=H[p.host];
+    if(p.op==='install'&&row.kind==='npm'&&!h.npm){p.st='failed';p.err='npm not found on host PATH (required for npm sources). Nothing was changed.';render();continue}
+    if(p.op==='remove')setV(row,p.host,null);else setV(row,p.host,p.nv);
+    if(p.edit&&p.op!=='remove'){DOCS[p.row][p.host].forEach(f=>{const c=p.edit[f[0]];if(c&&!c.secret)f[1]=c.to})}
+    if(!row.plugin&&row.mode==='restart'){(restartPending[p.host]??=[]).push(row.key)}
+    p.st='done';render();
+  }
+  const failed=pend.filter(p=>p.st==='failed').length;
+  applying=false;
+  if(!failed){toast('Applied '+pend.length+' change(s)');await new Promise(r=>setTimeout(r,1100));pend=[];trust={inst:false,rem:false}}
+  else toast(failed+' failed; the others were applied');
+  render();
+}
+
+/* ---------- rendering ---------- */
+function fmt(row,v,h){
+  if(row.plugin){
+    if(!v){if(!row.cloneable)return '<span class="none">not installed</span>';return '<span class="none">not installed</span>'}
+    const up=v.rev!==row.latest&&row.cloneable?'<span class="tag up">'+esc(row.latest)+' available</span>':'';
+    const st=v.status==='running'?'<span class="tag en">running</span>':v.status==='disabled'?'<span class="tag dis">disabled</span>':'<span class="tag fail">failed</span>';
+    return '<span class="v">'+(v.rev==='-'?'dir':'v'+esc(v.rev))+'</span> '+st+up+'<div class="s"><span class="tag">'+row.kind+'</span> '+(v.set?v.set+' settings keys':'no settings')+'</div>';
+  }
+  if(row.never)return '<span class="v">'+esc(v)+'</span> <span class="tag lock">never copied</span>';
+  if(row.type==='bool')return '<span class="tog '+(v?'on':'')+'"></span><span class="v">'+(v?'on':'off')+'</span>';
+  return '<span class="v">'+esc(String(v))+'</span>';
+}
+function stagedText(row,p,cur){
+  if(row.plugin){
+    if(p.op==='remove')return '<span class="old">'+(cur?'v'+esc(cur.rev):'plugin')+'</span><span class="new rm">'+(p.st==='done'?'removed':'remove')+'</span>';
+    if(p.op==='install')return '<span class="new">install v'+esc(p.nv.rev)+'</span>';
+    if(p.op==='edit')return '<span class="new">edit settings ('+Object.keys(p.edit).length+')</span>';
+    if(p.op==='toggle')return '<span class="old">'+cur.status+'</span><span class="new">'+p.nv.status+'</span>';
+    return '<span class="old">v'+esc(cur.rev)+'</span><span class="new">v'+esc(p.nv.rev)+(p.nv.set!==cur.set?' + settings':'')+'</span>';
+  }
+  const f=x=>row.type==='bool'?(x?'on':'off'):esc(String(x));
+  return '<span class="old">'+f(cur)+'</span><span class="new">'+f(p.nv)+'</span>';
+}
+function cellHTML(row,h){
+  const v=getV(row,h.id),pi=stagedIdx(row.id,h.id),p=pi>=0?pend[pi]:null,rc=reach(h);
+  let cls='cell',body='',acts='',hint='';
+  if(!rc.ok)cls+=' unreach';
+  if(p){cls+=' pend'+(p.st==='applying'?' applying':p.st==='done'?' done':p.st==='failed'?' failed':'');
+    body=stagedText(row,p,v)+'<div class="s">'+(p.st==='done'?'applied':p.st==='applying'?'applying...':p.st==='failed'?esc(p.err):esc(p.note||'staged'))+'</div>'}
+  else body=fmt(row,v,h);
+  const canCopy=rc.ok&&!row.ro&&!row.never&&(!row.plugin||v);
+  if(clip&&clip.kind==='cell'){
+    if(clip.row===row.id&&clip.host===h.id)cls+=' src';
+    const r=evalCell(row.id,h.id);
+    if(r&&r.ok&&!p){cls+=' target';acts+='<button class="paste" data-a="paste">'+(r.op==='install'?'Install here':'Paste')+'</button>'}
+    else if(r&&!r.ok&&!r.same&&clip.row===row.id&&!p)hint='<div class="hint">'+esc(r.why)+'</div>';
+    else if(r&&r.same&&clip.row===row.id&&clip.host!==h.id)hint='<div class="hint mut">identical</div>';
+  }
+  if(row.plugin&&rc.ok&&!p){
+    if(v)acts+='<button class="sm" data-a="menu">...</button>';
+    else if(!(clip&&clip.kind==='cell'&&clip.row===row.id&&evalCell(row.id,h.id)?.ok)&&!pluginBlock(row,h,'install'))acts+='<button class="sm inst" data-a="install">Install</button>';
+    else if(!v&&!acts)hint=hint||'<div class="hint mut">'+esc(pluginBlock(row,h,'install')||'')+'</div>';
+  }
+  if(canCopy)acts+='<button class="sm" data-a="copy">Copy</button>';
+  if(!rc.ok&&!v&&row.plugin)body='<span class="none">unknown</span>';
+  if(!rc.ok)hint='<div class="hint">'+esc(rc.kind==='sec'?'blocked: unencrypted link':rc.kind==='ver'?'needs Paseo 0.13+':rc.kind==='pre'?'blocked: pre-release':'auth failed')+'</div>';
+  return '<td class="'+cls+'" tabindex="0" data-row="'+row.id+'" data-host="'+h.id+'">'+body+hint+'<div class="acts">'+acts+'</div></td>';
+}
+function secRow(title,sec){
+  let c='<tr class="sec"><td>'+title+'</td>';
+  hosts.forEach(h=>{let b='';const rc=reach(h);
+    if(rc.ok)b+='<button class="sm" data-sa="copy" data-sec="'+sec+'" data-host="'+h.id+'">Copy column</button>';
+    if(rc.ok&&clip&&clip.kind==='section'&&clip.sec===sec&&clip.host!==h.id)b+='<button class="sm primary" data-sa="paste" data-sec="'+sec+'" data-host="'+h.id+'">Paste all</button>';
+    c+='<td class="hc"><div class="sbtn">'+b+'</div></td>'});
+  return c+'</tr>';
+}
+function supTag(h){
+  if(isPre(h))return '<span class="sec-tag bad">pre-release</span>';
+  if(cmp(h.ver,SUPPORT.min)<0)return '<span class="sec-tag bad">below minimum</span>';
+  if(cmp(h.ver,SUPPORT.target)>0)return '<span class="sec-tag warn">untested</span>';
+  return '';
+}
+function headHTML(h){
+  const rc=reach(h),ct=CONN_TAG[h.conn.kind];
+  const sec=rc.kind==='sec'?'bad':ct[0];
+  return '<th><div class="hh"><div class="n"><span class="dot '+(rc.ok?'':'off')+'"></span>'+esc(h.name)+'<span class="os '+h.os+'">'+OSN[h.os].slice(0,3).toUpperCase()+'</span>'+(h.hub?'<span class="tag">hub</span>':'')+'</div>'+
+    '<div class="m">'+esc(h.osName)+' - Paseo <span class="verlink" data-caps="'+h.id+'">'+esc(h.ver)+'</span> '+supTag(h)+'</div>'+
+    '<div class="m"><span class="sec-tag '+sec+'" title="'+esc(h.conn.desc)+'">'+ct[1]+'</span> '+esc(h.conn.desc)+'</div>'+
+    (rc.ok?'':'<div class="banner bad">'+esc(rc.why)+'</div>')+
+    (restartPending[h.id]?'<div class="banner">restart pending: '+esc([...new Set(restartPending[h.id])].join(', '))+'</div>':'')+'</div></th>';
+}
+function renderGrid(){
+  let t='<thead><tr><th></th>'+hosts.map(headHTML).join('')+'</tr></thead><tbody>';
+  t+=secRow('Host settings','s');
+  settingRows.forEach(r=>{
+    const mode=r.ro?'<span class="tag">read-only</span>':r.never?'<span class="tag lock">never copied</span>':'<span class="tag '+r.mode+'">'+({live:'live',reload:'reload',restart:'restart'})[r.mode]+'</span>';
+    t+='<tr><td class="lbl"><div class="t">'+r.label+mode+(r.sens?'<span class="tag restart">sensitive</span>':'')+'</div><div class="d">'+r.key+(r.note?' - '+r.note:'')+'</div></td>'+hosts.map(h=>cellHTML(r,h)).join('')+'</tr>'});
+  t+=secRow('Plugins','p');
+  pluginRows.forEach(r=>{
+    t+='<tr><td class="lbl"><div class="t">'+r.label+(r.required?'<span class="tag">required</span>':'')+'</div><div class="d">'+r.desc+' - latest '+esc(r.latest)+'</div><div style="margin-top:3px;display:flex;gap:5px"><button class="sm" data-rowa="install" data-row="'+r.id+'" '+(r.cloneable?'':'disabled')+'>Install on...</button><button class="sm" data-rowa="remove" data-row="'+r.id+'">Remove from...</button></div></td>'+hosts.map(h=>cellHTML(r,h)).join('')+'</tr>'});
+  t+='</tbody>';
+  document.getElementById('grid').innerHTML=t;
+}
+function describeClip(){
+  if(clip.kind==='section')return (clip.sec==='s'?'All host settings':'All plugins')+' from '+H[clip.host].name;
+  const r=rowById[clip.row],v=getV(r,clip.host);
+  return r.label+': '+(r.plugin?'v'+v.rev+(v.set?' + settings':''):String(v))+' from '+H[clip.host].name;
+}
+function renderBar(){
+  const b=document.getElementById('cbar');
+  if(!clip){b.className='empty';b.innerHTML='Clipboard empty. Hover a cell, press Copy, then Paste (or Install here) on another host. Missing plugins have an Install button.';return}
+  b.className='';let h='<span class="clip">'+esc(describeClip())+'</span>';
+  if(clip.kind==='cell'){
+    const r=rowById[clip.row];
+    if(r.plugin)h+='<label><input type="checkbox" data-o="ver" '+(opts.ver?'checked':'')+'>version</label><label><input type="checkbox" data-o="cfg" '+(opts.cfg?'checked':'')+'>settings document</label>';
+    h+='<span style="color:var(--mut)">Paste to several hosts:</span><div class="chips">';
+    hosts.forEach(x=>{if(x.id===clip.host)return;const e=evalPaste(clip.row,clip.host,clip.row,x.id);
+      h+='<span class="chip '+(e.ok?(sel.has(x.id)?'on':''):'off')+'" data-chip="'+x.id+'" title="'+(e.ok?esc(e.op+': '+e.note):esc(e.why))+'">'+esc(x.name)+(e.ok&&e.op==='install'?' (install)':'')+'</span>'});
+    h+='</div><button class="primary" id="pm" '+(sel.size?'':'disabled')+'>Stage '+sel.size+' in sequence</button><button id="pa">Select all valid</button>';
+  }else h+='<span style="color:var(--mut)">Use "Paste all" in the section header of the target host.</span>';
+  b.innerHTML=h+'<span style="flex:1"></span><button id="cc">Clear (Esc)</button>';
+}
+function renderDrawer(){
+  const d=document.getElementById('drawer');
+  if(!pend.length){d.className='';d.innerHTML='';return}
+  d.className='show';
+  const hasInst=pend.some(p=>p.op==='install'),hasRem=pend.some(p=>p.op==='remove');
+  const needT=(hasInst&&!trust.inst)||(hasRem&&!trust.rem);
+  const failed=pend.filter(p=>p.st==='failed').length;
+  let h='<div class="top"><b>Staged changes ('+pend.length+')</b><span style="color:var(--mut)">applied host by host, in this order, each over its own link</span><span style="flex:1"></span><button id="dis" '+(applying?'disabled':'')+'>Discard all</button><button class="primary" id="app" '+(applying||needT?'disabled':'')+'>'+(applying?'Applying...':failed?'Retry failed':'Apply sequentially')+'</button></div>';
+  if(hasInst||hasRem){h+='<div class="trust">';
+    if(hasInst)h+='<label class="chk"><input type="checkbox" data-trust="inst" '+(trust.inst?'checked':'')+'>I trust the plugin code to be installed. It runs unsandboxed on: '+esc([...new Set(pend.filter(p=>p.op==='install').map(p=>H[p.host].name))].join(', '))+'</label>';
+    if(hasRem)h+='<label class="chk"><input type="checkbox" data-trust="rem" '+(trust.rem?'checked':'')+'>I understand removal deletes plugin files and settings on: '+esc([...new Set(pend.filter(p=>p.op==='remove').map(p=>H[p.host].name))].join(', '))+'</label>';
+    h+='</div>'}
+  pend.forEach((p,i)=>{
+    const r=rowById[p.row];
+    h+='<div class="pi"><span class="st '+p.st+'">'+(p.st==='done'?'OK':p.st==='applying'?'...':p.st==='failed'?'FAILED':(i+1))+'</span><span>'+esc(H[p.host].name)+' <span class="opk '+p.op+'">'+p.op+'</span></span><span>'+esc(r.label)+'</span><span style="color:var(--mut)">'+esc(p.st==='failed'?p.err:(p.note||''))+'</span>'+(applying?'':'<button class="x" data-rm="'+i+'">x</button>')+'</div>'});
+  d.innerHTML=h;
+}
+function renderInsp(){
+  const a=document.getElementById('insp');if(!focus)return;
+  const r=rowById[focus.row],h=H[focus.host],v=getV(r,focus.host);
+  let s='<h3>'+esc(r.label)+' on '+esc(h.name)+'</h3><div style="color:var(--mut)">'+esc(h.osName)+' - '+esc(CONN_TAG[h.conn.kind][1])+'</div>';
+  if(r.plugin){
+    s+='<div class="k">Portable source</div><pre>'+esc(r.kind+': '+r.src)+'</pre>';
+    if(!v)s+='<div class="k">Status</div>Not installed. '+(pluginBlock(r,h,'install')||'Installable from the source above.');
+    else s+='<div class="k">Revision</div>'+esc(v.rev)+' (latest '+esc(r.latest)+')<div class="k">State</div>'+v.status+'<div class="k">Settings document</div>'+(v.set?v.set+' keys. Secrets masked and never copied; plugin is reloaded after a paste.':'none');
+    const ssx=v?editSupport(r,h,v):null;if(ssx)s+='<div class="k">Settings editor</div>'+(ssx.ok?'available (document '+esc(ssx.doc.id)+')':esc(ssx.why));
+    s+='<div class="k">Requires</div>Paseo >= '+r.req;
+  }else s+='<div class="k">Config key</div><pre>'+esc(r.key)+'</pre><div class="k">Apply</div>'+(r.ro?'read-only':r.never?'never copied':({live:'live via config.patch',reload:'file edit + config reload',restart:'file edit + daemon restart'})[r.mode])+'<div class="k">Value</div><pre>'+esc(String(v))+'</pre>'+(r.needs?'<div class="k">Needs flags</div>'+esc(r.needs.join(', ')):'');
+  a.innerHTML=s;
+}
+/* compact (phone) view */
+function renderCompact(){
+  const opt=sel=>hosts.map(h=>'<option value="'+h.id+'" '+(h.id===sel?'selected':'')+'>'+esc(h.name)+'</option>').join('');
+  let h='<div class="cmp"><div class="bar"><span>Into</span><select id="cdst">'+opt(cmpState.dst)+'</select><span>pull from</span><select id="csrc">'+opt(cmpState.src)+'</select><button id="cstage">Stage all differences</button></div>';
+  const dst=H[cmpState.dst],src=H[cmpState.src];
+  const rd=reach(dst),rs=reach(src);
+  if(!rd.ok||!rs.ok)h+='<div class="banner bad">'+esc(!rd.ok?dst.name+': '+rd.why:src.name+': '+rs.why)+'</div>';
+  h+='<div class="r h"><span>Item</span><span>'+esc(dst.name)+'</span><span>'+esc(src.name)+'</span><span></span></div>';
+  [...settingRows,...pluginRows].forEach(r=>{
+    if(r.ro||r.never)return;
+    const dv=getV(r,dst.id),sv=getV(r,src.id);const e=evalPaste(r.id,src.id,r.id,dst.id);
+    const txt=v=>r.plugin?(v?'v'+esc(v.rev)+' '+v.status:'<span class="none">missing</span>'):(r.type==='bool'?(v?'on':'off'):esc(String(v)));
+    const stt=e.same?'<span class="st2 same">same</span>':e.ok?(e.op==='install'?'<span class="st2 miss">missing</span>':'<span class="st2 diff">differs</span>'):'<span class="st2">'+esc(e.why).slice(0,24)+'</span>';
+    h+='<div class="r"><span>'+esc(r.label)+' '+stt+'</span><span>'+txt(dv)+'</span><span>'+txt(sv)+'</span><span>'+(e.ok?'<button class="sm primary" data-cp="'+r.id+'">'+(e.op==='install'?'Install':'Pull')+'</button>':'')+'</span></div>'});
+  document.getElementById('wrap').innerHTML=h+'</div>';
+}
+function render(){
+  document.getElementById('hcount').textContent=hosts.filter(h=>reach(h).ok).length+' of '+hosts.length+' hosts reachable';
+  document.getElementById('vgrid').className=state.view==='grid'?'on':'';document.getElementById('vcomp').className=state.view==='compact'?'on':'';
+  renderBar();
+  if(state.view==='grid'){const w=document.getElementById('wrap');if(!document.getElementById('grid')){w.innerHTML='<table id="grid"></table>'}renderGrid()}else renderCompact();
+  renderDrawer();renderInsp();
+}
+
+/* ---------- modal + toast ---------- */
+let modalHandler=null;
+function showModal(html,handler){const m=document.getElementById('modal');m.innerHTML=html;modalHandler=handler;document.getElementById('modalbg').className='show'}
+function hideModal(){document.getElementById('modalbg').className='';modalHandler=null}
+document.getElementById('modal').addEventListener('click',e=>{if(modalHandler&&!e.target.disabled)modalHandler(e)});
+document.getElementById('modalbg').addEventListener('click',e=>{if(e.target.id==='modalbg')hideModal()});
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',2600)}
+function copyCell(row,host){clip={kind:'cell',row,host};sel.clear();render()}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target;if(document.getElementById('modalbg').className==='show'&&t.closest('#modal'))return;
+  const caps=t.closest('[data-caps]');if(caps){openCaps(caps.dataset.caps);return}
+  const ra=t.closest('[data-rowa]');if(ra){ra.dataset.rowa==='install'?openInstall(ra.dataset.row):openRemove(ra.dataset.row);return}
+  const a=t.closest('[data-a]'),cell=t.closest('td.cell');
+  if(cell)focus={row:cell.dataset.row,host:cell.dataset.host};
+  if(a&&cell){const rid=cell.dataset.row,hid=cell.dataset.host;
+    if(a.dataset.a==='copy')copyCell(rid,hid);else if(a.dataset.a==='paste')pasteCell(rid,hid);else if(a.dataset.a==='menu')openMenu(rid,hid);else if(a.dataset.a==='install')openInstall(rid,hid);return}
+  const sa=t.closest('[data-sa]');
+  if(sa){if(sa.dataset.sa==='copy'){clip={kind:'section',sec:sa.dataset.sec,host:sa.dataset.host};render()}else pasteSection(sa.dataset.sec,sa.dataset.host);return}
+  const chip=t.closest('[data-chip]');
+  if(chip&&!chip.classList.contains('off')){const id=chip.dataset.chip;sel.has(id)?sel.delete(id):sel.add(id);render();return}
+  if(t.dataset.o){opts[t.dataset.o]=t.checked;render();return}
+  if(t.dataset.trust){trust[t.dataset.trust]=t.checked;renderDrawer();return}
+  const cp=t.closest('[data-cp]');if(cp){const r=evalPaste(cp.dataset.cp,cmpState.src,cp.dataset.cp,cmpState.dst);if(r.ok){stage(cp.dataset.cp,cmpState.dst,r);render();toast('Staged')}return}
+  const id=t.id;
+  if(id==='pm')pasteMulti();
+  else if(id==='pa'){hosts.forEach(x=>{if(x.id!==clip.host&&evalPaste(clip.row,clip.host,clip.row,x.id).ok)sel.add(x.id)});render()}
+  else if(id==='cc'){clip=null;sel.clear();render()}
+  else if(id==='app')applyAll();
+  else if(id==='dis'){pend=[];trust={inst:false,rem:false};render()}
+  else if(id==='refresh')toast('Refreshed from reachable hosts (server_info, config.get, plugin list)');
+  else if(id==='addhost')openAddHost();
+  else if(id==='vgrid'){state.view='grid';render()}
+  else if(id==='vcomp'){state.view='compact';document.getElementById('wrap').innerHTML='';render()}
+  else if(id==='cstage'){let n=0;[...settingRows,...pluginRows].forEach(r=>{const e=evalPaste(r.id,cmpState.src,r.id,cmpState.dst);if(e.ok){stage(r.id,cmpState.dst,e);n++}});render();toast(n+' change(s) staged')}
+  else if(t.dataset.rm){pend.splice(+t.dataset.rm,1);render()}
+  else if(cell)render();
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='allowpre'){state.allowPre=e.target.checked;render();toast(state.allowPre?'Pre-release hosts enabled (unsupported, at your own risk)':'Pre-release hosts blocked')}
+  if(e.target.id==='pol'){state.policyEnc=e.target.checked;render();toast(state.policyEnc?'Plain tcp hosts are blocked':'Policy off: plain tcp hosts are usable (not recommended)')}
+  if(e.target.id==='cdst'){cmpState.dst=e.target.value;render()}
+  if(e.target.id==='csrc'){cmpState.src=e.target.value;render()}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(document.getElementById('modalbg').className==='show'){hideModal();return}clip=null;sel.clear();render();return}
+  const c=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('td.cell');if(!c)return;
+  const r=rowById[c.dataset.row],h=H[c.dataset.host];
+  if((e.ctrlKey||e.metaKey)&&e.key==='c'){if(reach(h).ok&&!r.ro&&!r.never&&(!r.plugin||getV(r,h.id))){copyCell(r.id,h.id);e.preventDefault()}}
+  if((e.ctrlKey||e.metaKey)&&e.key==='v'){pasteCell(c.dataset.row,c.dataset.host);e.preventDefault()}
+});
+render();
+</script>
+</body>
+</html>
