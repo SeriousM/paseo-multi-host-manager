@@ -10,6 +10,7 @@ import { Field, MenuButton, Note, SectionLabel, TargetRow } from "./controls";
 import { DialogFrame } from "./dialog-frame";
 import type { DialogProps } from "./dialog-frame";
 import { installBlocker, parseInstallSource, pluginMenuRules, removeBlocker } from "./plugin-rules";
+import { font, TYPE } from "../grid/palette";
 
 /**
  * Rules the dialogs keep:
@@ -170,7 +171,7 @@ export function InstallDialog({ theme, controller, onClose, pluginId, hostId }: 
           />
         ))}
       </View>
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>Nothing is installed until you press Apply and confirm trust.</Text>
+      <Text style={{ color: theme.colors.foregroundMuted, ...font(TYPE.secondary) }}>Nothing is installed until you press Apply and confirm trust.</Text>
     </DialogFrame>
   );
 }

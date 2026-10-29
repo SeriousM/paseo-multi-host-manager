@@ -9,6 +9,7 @@ import { CompactView } from "./grid/compact-view";
 import { GridView } from "./grid/grid-view";
 import { Toolbar } from "./grid/toolbar";
 import { useMhm } from "./state/hooks";
+import { font, TYPE } from "./grid/palette";
 
 /** The screen is opened on the hub: its server is the broker for every other host. */
 export function MhmScreen({ theme, layout, host }: PluginScreenProps) {
@@ -19,9 +20,9 @@ export function MhmScreen({ theme, layout, host }: PluginScreenProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }}>
-      <Toolbar {...surface} />
+      <Toolbar {...surface} compact={layout.compact} />
       <ClipboardBar {...surface} />
-      {grid.error ? <Text style={{ color: theme.colors.statusDanger, fontSize: 12, padding: 12 }}>Could not load the hosts: {grid.error}</Text> : null}
+      {grid.error ? <Text style={{ color: theme.colors.statusDanger, ...font(TYPE.body), padding: 12 }}>Could not load the hosts: {grid.error}</Text> : null}
       {grid.loading && state.hosts.length === 0 ? <Loading /> : compact ? <CompactView {...surface} /> : <GridView {...surface} />}
       <ActionBar {...surface} />
       <StagingDrawer {...surface} />

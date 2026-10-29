@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import { Button } from "../grid/primitives";
 import type { MhmSurfaceProps } from "../surface";
+import { font, TYPE } from "../grid/palette";
 
 /** Props of every dialog: chrome, controller, and how to close it (the DialogHost passes `closeDialog`). */
 export interface DialogProps extends MhmSurfaceProps {
@@ -26,5 +27,5 @@ export function DialogFrame({ theme, title, onClose, children, footer, closeLabe
 
 /** Placeholder body for parts another work package fills in. */
 export function Pending({ theme, text }: Pick<DialogProps, "theme"> & { text: string }) {
-  return <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>{text}</Text>;
+  return <Text style={{ color: theme.colors.foregroundMuted, ...font(TYPE.body) }}>{text}</Text>;
 }

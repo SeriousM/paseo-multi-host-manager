@@ -42,7 +42,9 @@ export type MhmAction =
   | { type: "openDialog"; dialog: DialogRequest }
   | { type: "closeDialog" }
   | { type: "setView"; view: ViewMode }
-  | { type: "setCompare"; into?: string | null; from?: string | null };
+  | { type: "setCompare"; into?: string | null; from?: string | null }
+  /** Add host saved a host: close the dialog and select its column once a grid load has it. */
+  | { type: "hostAdded"; registrationId: string };
 
 export const INITIAL_STATE: MhmState = {
   hosts: [],
@@ -59,6 +61,7 @@ export const INITIAL_STATE: MhmState = {
   compare: { into: null, from: null },
   baseline: null,
   onlyDifferences: false,
+  focusHost: null,
 };
 
 /** The queue is frozen while an apply runs: results are merged by item id, a changed item must not get an old result. */
@@ -74,6 +77,8 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
       // A saved host's id flips from its registration id to its server id once the hub reached it: follow the flip,
       // and drop references to hosts that are gone.
       const current = (hostId: string | null) => (hostId === null ? null : (hosts.find((host) => itemOnHost(hostId, host))?.id ?? null));
+      // A host Add host just saved is selected the first time a load has it, which also shows its column's actions.
+      const focused = state.focusHost === null ? null : current(state.focusHost);
       const selectionHost = current(state.selection?.hostId ?? null);
       const sourceHost = current(state.clipboard?.sourceHost ?? null);
       const into = current(state.compare.into) ?? hosts.find((host) => host.isHub)?.id ?? null;
@@ -81,7 +86,8 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
       return {
         ...state,
         hosts,
-        selection: state.selection && selectionHost ? { ...state.selection, hostId: selectionHost } : null,
+        selection: focused ? { kind: "host", hostId: focused } : state.selection && selectionHost ? { ...state.selection, hostId: selectionHost } : null,
+        focusHost: focused ? null : state.focusHost,
         clipboard: state.clipboard && sourceHost ? { ...state.clipboard, sourceHost } : null,
         pasteTargets: state.pasteTargets.flatMap((hostId) => current(hostId) ?? []),
         compare: { into, from },
@@ -165,5 +171,7 @@ export function mhmReducer(state: MhmState, action: MhmAction): MhmState {
       return { ...state, view: action.view };
     case "setCompare":
       return { ...state, compare: { into: action.into === undefined ? state.compare.into : action.into, from: action.from === undefined ? state.compare.from : action.from } };
+    case "hostAdded":
+      return { ...state, dialog: null, focusHost: action.registrationId };
   }
 }

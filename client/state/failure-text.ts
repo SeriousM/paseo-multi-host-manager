@@ -19,6 +19,10 @@ const HOST_ERROR_TEXT: Record<string, string> = {
   not_found: "Not found on the host.",
   update_preview_failed: "The host could not check for an update.",
   update_failed: "The host could not apply the update.",
+  // Codes of the hub daemon's saved-host directory (Add host).
+  resource_limit: "The hub already has the most saved hosts it allows (128). Remove one first.",
+  source_conflict: "The hub already has this registration. Refresh the grid.",
+  permission_denied: "The hub's daemon does not allow this plugin to change its saved hosts.",
 };
 
 const CAPABILITY_DISABLED_TEXT: Record<string, string> = {

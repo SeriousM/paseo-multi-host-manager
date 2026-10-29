@@ -6,7 +6,7 @@ import { docReadRpc } from "../../shared/contracts";
 import type { Json } from "../../shared/mask";
 import { DialogFrame } from "../dialogs/dialog-frame";
 import type { DialogProps } from "../dialogs/dialog-frame";
-import { MONO } from "../grid/palette";
+import { font, MONO, TYPE } from "../grid/palette";
 import { Badge, Button } from "../grid/primitives";
 import { findHost } from "../state/grid-model";
 import { docStatus, editorAccess, OPT_IN_EXPLANATION, stagedFor, toLoadedDoc, writtenFor, writtenStatus } from "./access";
@@ -32,7 +32,7 @@ interface Pasted {
 }
 
 function Note({ color, text, bold = false }: { color: string; text: string; bold?: boolean }) {
-  return <Text style={{ color, fontSize: 12, fontWeight: bold ? "600" : "400" }}>{text}</Text>;
+  return <Text style={{ color, ...font(TYPE.body), fontWeight: bold ? "600" : "400" }}>{text}</Text>;
 }
 
 /**
@@ -157,7 +157,7 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
   return (
     <DialogFrame theme={theme} title={`Edit ${pluginId}/${settingsId} on ${label}`} onClose={onClose} footer={footer}>
       <View style={{ gap: 10 }}>
-        <Text style={{ color: colors.foregroundMuted, fontSize: 12 }}>
+        <Text style={{ color: colors.foregroundMuted, ...font(TYPE.body) }}>
           Document <Text style={MONO}>{settingsId}</Text> of {pluginId}, stored on {label}. Read and written by the multi-host-manager instance on that host. The plugin validates it when it reloads, not when it is written.
         </Text>
 
@@ -165,7 +165,7 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
           <View style={{ gap: 4, borderWidth: 1, borderColor: colors.statusWarning, borderRadius: 8, padding: 10 }}>
             <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
               <Badge theme={theme} label="read-only" severity="warn" />
-              <Text style={{ color: colors.foreground, fontSize: 12, flexShrink: 1 }}>{access.reason}</Text>
+              <Text style={{ color: colors.foreground, ...font(TYPE.body), flexShrink: 1 }}>{access.reason}</Text>
             </View>
             {access.optIn ? <Note color={colors.foregroundMuted} text={OPT_IN_EXPLANATION} /> : null}
           </View>
@@ -230,7 +230,7 @@ export function SettingsEditor({ theme, controller, onClose, hostId, pluginId, s
                       autoCapitalize="none"
                       autoCorrect={false}
                       spellCheck={false}
-                      style={{ ...MONO, minHeight: 220, color: colors.foreground, borderColor: textError ? colors.statusDanger : colors.border, borderWidth: 1, borderRadius: 6, padding: 8, fontSize: 12, textAlignVertical: "top" }}
+                      style={{ ...MONO, minHeight: 220, color: colors.foreground, borderColor: textError ? colors.statusDanger : colors.border, borderWidth: 1, borderRadius: 6, padding: 8, ...font(TYPE.mono), textAlignVertical: "top" }}
                     />
                     {textError ? <Note color={colors.statusDanger} text={`Invalid JSON: ${textError}`} /> : <Note color={colors.foregroundMuted} text={'Secrets read "<masked>"; keep that text to keep the stored value, replace it to set a new one.'} />}
                   </View>

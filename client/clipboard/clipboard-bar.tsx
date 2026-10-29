@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text, View } from "react-native";
 import { ROW_BY_ID } from "../../shared/rows";
-import { tint } from "../grid/palette";
+import { font, tint, TYPE } from "../grid/palette";
 import { Button } from "../grid/primitives";
 import { findHost, formatPlugin, formatValue } from "../state/grid-model";
 import type { ClipboardEntry, MhmState } from "../state/types";
@@ -35,18 +35,18 @@ function HostChip({ theme, chip, onPress }: { theme: PluginTheme; chip: PasteChi
         maxWidth: 220,
         borderWidth: 1,
         borderRadius: 6,
-        paddingHorizontal: 9,
-        paddingVertical: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         borderColor: chip.selected ? colors.accent : colors.border,
         backgroundColor: chip.selected ? tint(colors.accent, 0.3) : colors.surface2,
         opacity: chip.selectable ? 1 : chip.same ? 0.5 : 0.7,
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.foreground, fontSize: 12, fontWeight: chip.selected ? "600" : "400" }}>
+      <Text numberOfLines={1} style={{ color: colors.foreground, ...font(TYPE.body), fontWeight: chip.selected ? "600" : "400" }}>
         {chip.label}
         {chip.tag ? ` (${chip.tag})` : ""}
       </Text>
-      <Text numberOfLines={2} style={{ color: chip.selectable || chip.same ? colors.foregroundMuted : colors.statusWarning, fontSize: 10 }}>
+      <Text numberOfLines={2} style={{ color: chip.selectable || chip.same ? colors.foregroundMuted : colors.statusWarning, ...font(TYPE.badge) }}>
         {chip.note}
       </Text>
     </Pressable>
@@ -62,7 +62,7 @@ export function ClipboardBar({ theme, layout, controller }: Pick<MhmSurfaceProps
   if (!clip) {
     return (
       <View style={{ paddingHorizontal: padding, paddingVertical: 8, backgroundColor: colors.surface1, borderBottomWidth: 1, borderColor: colors.border }}>
-        <Text style={{ color: colors.foregroundMuted, fontSize: 12 }}>Clipboard empty. Tap a cell, press Copy, then select the same row on another host and press Paste (or Install here).</Text>
+        <Text style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>Clipboard empty. Tap a cell, press Copy, then select the same row on another host and press Paste (or Install here).</Text>
       </View>
     );
   }
@@ -74,7 +74,7 @@ export function ClipboardBar({ theme, layout, controller }: Pick<MhmSurfaceProps
   return (
     <View style={{ gap: 6, paddingHorizontal: padding, paddingVertical: 8, backgroundColor: colors.surface1, borderBottomWidth: 1, borderColor: colors.accent }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Text numberOfLines={layout.compact ? 2 : 1} style={{ flexShrink: 1, color: colors.accentForeground, backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3, fontWeight: "600", fontSize: 12, overflow: "hidden" }}>
+        <Text numberOfLines={layout.compact ? 2 : 1} style={{ flexShrink: 1, color: colors.accentForeground, backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3, fontWeight: "600", ...font(TYPE.body), overflow: "hidden" }}>
           {describeClipboard(state, clip)}
         </Text>
         <View style={{ flex: 1 }} />
@@ -83,12 +83,12 @@ export function ClipboardBar({ theme, layout, controller }: Pick<MhmSurfaceProps
       {chips.length > 0 ? (
         <>
           {clip.kind === "doc" ? (
-            <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>
+            <Text style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>
               A settings document is pasted in the editor, which reads the target's document first so masked secrets keep the target's own values. Tap a host to open it.
             </Text>
           ) : (
             <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>Paste to several hosts:</Text>
+              <Text style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>Paste to several hosts:</Text>
               <Button
                 theme={theme}
                 label="All other hosts"
@@ -121,7 +121,7 @@ export function ClipboardBar({ theme, layout, controller }: Pick<MhmSurfaceProps
           </View>
         </>
       ) : (
-        <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>There is no other host to paste to.</Text>
+        <Text style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>There is no other host to paste to.</Text>
       )}
     </View>
   );

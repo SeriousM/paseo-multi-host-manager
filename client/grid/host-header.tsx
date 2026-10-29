@@ -4,7 +4,7 @@ import { baselineHost, differenceCount } from "../state/compare";
 import { hostSummary } from "../state/grid-model";
 import type { GridHost } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
-import { SIZES, severityColor, tint } from "./palette";
+import { font, severityColor, SIZES, tint, TYPE } from "./palette";
 import type { Severity } from "./palette";
 import { Badge } from "./primitives";
 
@@ -45,7 +45,7 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
         width,
         height: SIZES.headerHeight,
         overflow: "hidden",
-        padding: 9,
+        padding: 12,
         gap: 4,
         borderRightWidth: 1,
         borderBottomWidth: 1,
@@ -55,8 +55,8 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: summary.reachable ? colors.statusSuccess : colors.statusDanger }} />
-        <Text numberOfLines={1} style={{ color: colors.foreground, fontWeight: "600", fontSize: 14, maxWidth: width - 90 }}>
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: summary.reachable ? colors.statusSuccess : colors.statusDanger }} />
+        <Text numberOfLines={1} style={{ color: colors.foreground, fontWeight: "600", ...font(TYPE.heading), maxWidth: width - 90 }}>
           {summary.label}
         </Text>
         {summary.platform ? <Badge theme={theme} label={PLATFORM[summary.platform] ?? summary.platform} severity="accent" /> : null}
@@ -65,7 +65,7 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
         {differ !== null ? <Badge theme={theme} label={differ === 0 ? "same as baseline" : `${differ} differ`} severity={differ === 0 ? "ok" : "warn"} /> : null}
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>Paseo {summary.version ?? "?"}</Text>
+        <Text style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>Paseo {summary.version ?? "?"}</Text>
         {summary.versionTag ? <Badge theme={theme} label={summary.versionTag === "prerelease" ? "pre-release" : "untested"} severity={summary.versionTag === "prerelease" ? "bad" : "warn"} /> : null}
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -73,7 +73,7 @@ export function HostHeader({ theme, controller, host, width }: Pick<MhmSurfacePr
         {summary.companion ? <Badge theme={theme} label={COMPANION_BADGE[summary.companion][1]} severity={COMPANION_BADGE[summary.companion][0]} /> : null}
       </View>
       {summary.failure ? (
-        <Text numberOfLines={2} style={{ color: severityColor(theme, "bad"), fontSize: 11 }}>
+        <Text numberOfLines={2} style={{ color: severityColor(theme, "bad"), ...font(TYPE.secondary) }}>
           {summary.failure.message}
         </Text>
       ) : null}

@@ -9,6 +9,7 @@ import { Checkbox, Note, SectionLabel } from "./controls";
 import { DialogFrame } from "./dialog-frame";
 import type { DialogProps } from "./dialog-frame";
 import { companionInstall, installBlocker } from "./plugin-rules";
+import { font, TYPE } from "../grid/palette";
 
 const COMPANION_TEXT: Record<string, string> = {
   ok: "multi-host-manager is running on this host.",
@@ -40,7 +41,7 @@ export function CapabilitiesDialog({ theme, controller, onClose, hostId }: Dialo
 
       <SectionLabel theme={theme} text="Paseo version" />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600" }}>{report.version ?? "unknown"}</Text>
+        <Text style={{ color: colors.foreground, ...font(TYPE.heading), fontWeight: "600" }}>{report.version ?? "unknown"}</Text>
         <Badge theme={theme} label={report.tier === "below_minimum" ? "below minimum" : report.tier} severity={report.tierSeverity} />
       </View>
       <Note theme={theme}>{report.tierText}</Note>
@@ -59,10 +60,10 @@ export function CapabilitiesDialog({ theme, controller, onClose, hostId }: Dialo
           {report.missing > 0 ? <Note theme={theme} severity="warn">{report.missing} missing. Actions that need them are blocked on this host.</Note> : <Note theme={theme}>All features this plugin uses are present.</Note>}
           {report.features.map((feature) => (
             <View key={feature.flag} style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-              <Text style={{ width: 56, fontSize: 12, color: feature.present ? colors.statusSuccess : colors.statusWarning }}>{feature.present ? "present" : "missing"}</Text>
+              <Text style={{ width: 56, ...font(TYPE.body), color: feature.present ? colors.statusSuccess : colors.statusWarning }}>{feature.present ? "present" : "missing"}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.foreground, fontSize: 12 }}>{feature.flag}</Text>
-                <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>
+                <Text style={{ color: colors.foreground, ...font(TYPE.body) }}>{feature.flag}</Text>
+                <Text style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>
                   {feature.present ? feature.allows : `Blocks: ${feature.allows}. Needs Paseo ${feature.since} or newer.`}
                 </Text>
               </View>
@@ -81,8 +82,8 @@ export function CapabilitiesDialog({ theme, controller, onClose, hostId }: Dialo
       {blockedLink ? (
         registrationId !== null ? (
           <Checkbox theme={theme} checked={allowed} onChange={(next) => void controller.savePolicy(withInsecureLink(policy, registrationId, next))}>
-            <Text style={{ color: colors.foreground, fontSize: 12 }}>Allow unencrypted link to this host</Text>
-            <Text style={{ color: colors.foregroundMuted, fontSize: 11 }}>Anything sent over it, including settings, can be read on the network. Use only over a VPN or a trusted LAN.</Text>
+            <Text style={{ color: colors.foreground, ...font(TYPE.body) }}>Allow unencrypted link to this host</Text>
+            <Text style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>Anything sent over it, including settings, can be read on the network. Use only over a VPN or a trusted LAN.</Text>
           </Checkbox>
         ) : (
           <Note theme={theme} severity="warn">This host is not a saved host of the hub, so it cannot be allowed.</Note>

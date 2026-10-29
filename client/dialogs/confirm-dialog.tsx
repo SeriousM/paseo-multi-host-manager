@@ -7,6 +7,7 @@ import { lockoutLines, removalLines, trustLines } from "./confirm-text";
 import type { ConfirmLine } from "./confirm-text";
 import { DialogFrame } from "./dialog-frame";
 import type { DialogProps } from "./dialog-frame";
+import { font, TYPE } from "../grid/palette";
 
 const TITLE: Record<Confirmation, string> = { trust: "Trust plugin code", destructive: "Remove plugins", lockout: "This can cut access" };
 const INTRO: Record<Confirmation, string> = {
@@ -51,11 +52,11 @@ export function ConfirmDialog({ theme, controller, onClose, kind, itemIds }: Dia
         />
       }
     >
-      <Text style={{ color: colors.foreground, fontSize: 13 }}>{INTRO[kind]}</Text>
+      <Text style={{ color: colors.foreground, ...font(TYPE.body) }}>{INTRO[kind]}</Text>
       <View style={{ gap: 6 }}>
         {lines.map((line) => (
           <View key={line.itemId} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 8, backgroundColor: colors.surface1, gap: 2 }}>
-            <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600" }}>
+            <Text style={{ color: colors.foreground, ...font(TYPE.body), fontWeight: "600" }}>
               {line.host}: {line.title}
             </Text>
             <Note theme={theme} severity={line.pin === "latest" ? "warn" : "muted"} mono={kind === "trust"}>
@@ -68,23 +69,23 @@ export function ConfirmDialog({ theme, controller, onClose, kind, itemIds }: Dia
       {kind === "trust" ? (
         <>
           <Checkbox theme={theme} checked={main} onChange={setMain}>
-            <Text style={{ color: colors.foreground, fontSize: 12 }}>I trust the plugin code to be installed. It runs unsandboxed on: {affected}.</Text>
+            <Text style={{ color: colors.foreground, ...font(TYPE.body) }}>I trust the plugin code to be installed. It runs unsandboxed on: {affected}.</Text>
           </Checkbox>
           {latest ? (
             <Checkbox theme={theme} checked={versions} onChange={setVersions}>
-              <Text style={{ color: colors.foreground, fontSize: 12 }}>I know sources marked "installs the latest release" can install a different version than the one on the other hosts.</Text>
+              <Text style={{ color: colors.foreground, ...font(TYPE.body) }}>I know sources marked "installs the latest release" can install a different version than the one on the other hosts.</Text>
             </Checkbox>
           ) : null}
         </>
       ) : null}
       {kind === "destructive" ? (
         <Checkbox theme={theme} checked={main} onChange={setMain}>
-          <Text style={{ color: colors.foreground, fontSize: 12 }}>I understand removal deletes plugin files and settings on: {affected}.</Text>
+          <Text style={{ color: colors.foreground, ...font(TYPE.body) }}>I understand removal deletes plugin files and settings on: {affected}.</Text>
         </Checkbox>
       ) : null}
       {kind === "lockout" ? (
         <Checkbox theme={theme} checked={main} onChange={setMain}>
-          <Text style={{ color: colors.foreground, fontSize: 12 }}>I understand the hub can lose access to: {affected}. It may only be reversible on the host itself.</Text>
+          <Text style={{ color: colors.foreground, ...font(TYPE.body) }}>I understand the hub can lose access to: {affected}. It may only be reversible on the host itself.</Text>
         </Checkbox>
       ) : null}
     </DialogFrame>

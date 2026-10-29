@@ -7,18 +7,19 @@ import { findHost, hostData, pluginRows } from "../state/grid-model";
 import type { CellRef, GridHost } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
 import { Button } from "./primitives";
+import { font, TYPE } from "./palette";
 
 type BarProps = Pick<MhmSurfaceProps, "theme" | "controller">;
 
 function Bar({ theme, title, subtitle, children }: Pick<MhmSurfaceProps, "theme"> & { title: string; subtitle: string; children: ReactNode }) {
   const { colors } = theme;
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface1 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface1 }}>
       <View style={{ flexShrink: 1, minWidth: 160 }}>
-        <Text numberOfLines={1} style={{ color: colors.foreground, fontWeight: "600", fontSize: 12 }}>
+        <Text numberOfLines={1} style={{ color: colors.foreground, fontWeight: "600", ...font(TYPE.body) }}>
           {title}
         </Text>
-        <Text numberOfLines={1} style={{ color: colors.foregroundMuted, fontSize: 11 }}>
+        <Text numberOfLines={1} style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>
           {subtitle}
         </Text>
       </View>
@@ -30,7 +31,7 @@ function Bar({ theme, title, subtitle, children }: Pick<MhmSurfaceProps, "theme"
 
 function Reason({ theme, text }: Pick<MhmSurfaceProps, "theme"> & { text: string }) {
   return (
-    <Text numberOfLines={2} style={{ color: theme.colors.statusWarning, fontSize: 11, maxWidth: 260 }}>
+    <Text numberOfLines={2} style={{ color: theme.colors.statusWarning, ...font(TYPE.secondary), maxWidth: 260 }}>
       {text}
     </Text>
   );

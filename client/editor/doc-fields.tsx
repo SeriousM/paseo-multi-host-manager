@@ -5,7 +5,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { MASK_PLACEHOLDER, maskJson } from "../../shared/mask";
 import type { Json } from "../../shared/mask";
 import { Badge, Button } from "../grid/primitives";
-import { MONO } from "../grid/palette";
+import { font, MONO, TYPE } from "../grid/palette";
 import { flattenDoc, removeAt, setAt } from "./doc-tree";
 import type { Leaf } from "./doc-tree";
 
@@ -32,7 +32,7 @@ function NumberField({ theme, value, onChange }: { theme: PluginTheme; value: nu
         setText(next);
         if (next.trim() !== "" && Number.isFinite(Number(next))) onChange(Number(next));
       }}
-      style={{ ...MONO, color: valid ? theme.colors.foreground : theme.colors.statusDanger, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12 }}
+      style={{ ...MONO, color: valid ? theme.colors.foreground : theme.colors.statusDanger, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, ...font(TYPE.mono) }}
     />
   );
 }
@@ -50,12 +50,12 @@ interface FieldRowProps {
 function FieldRow({ theme, leaf, stored, secret, unresolved, onSet, onRemove }: FieldRowProps) {
   const { colors } = theme;
   const { value } = leaf;
-  const input = { ...MONO, color: colors.foreground, borderColor: colors.border, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12 };
+  const input = { ...MONO, color: colors.foreground, borderColor: colors.border, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, ...font(TYPE.mono) };
   let control;
   if (value === MASK_PLACEHOLDER) {
     control = (
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Text style={{ ...MONO, fontSize: 12, color: unresolved ? colors.statusDanger : colors.foregroundMuted }}>
+        <Text style={{ ...MONO, ...font(TYPE.mono), color: unresolved ? colors.statusDanger : colors.foregroundMuted }}>
           {unresolved ? "<masked> (nothing stored on this host)" : "<masked> (kept as on target)"}
         </Text>
         <Badge theme={theme} label="locked" severity={unresolved ? "bad" : "muted"} />
@@ -84,12 +84,12 @@ function FieldRow({ theme, leaf, stored, secret, unresolved, onSet, onRemove }: 
   } else if (typeof value === "number") {
     control = <NumberField theme={theme} value={value} onChange={onSet} />;
   } else {
-    control = <Text style={{ ...MONO, fontSize: 12, color: colors.foregroundMuted }}>{JSON.stringify(value)} (edit in the JSON view)</Text>;
+    control = <Text style={{ ...MONO, ...font(TYPE.mono), color: colors.foregroundMuted }}>{JSON.stringify(value)} (edit in the JSON view)</Text>;
   }
   return (
     <View style={{ gap: 4, paddingVertical: 6, borderBottomWidth: 1, borderColor: colors.border }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Text style={{ ...MONO, color: colors.foreground, fontSize: 12, flexShrink: 1 }}>{leaf.path === "" ? "(document)" : leaf.path}</Text>
+        <Text style={{ ...MONO, color: colors.foreground, ...font(TYPE.mono), flexShrink: 1 }}>{leaf.path === "" ? "(document)" : leaf.path}</Text>
         {secret ? <Badge theme={theme} label="secret" severity="warn" /> : null}
         <View style={{ flex: 1 }} />
         {onRemove ? <Button theme={theme} label="Remove" variant="danger" onPress={onRemove} /> : null}
@@ -103,7 +103,7 @@ function FieldRow({ theme, leaf, stored, secret, unresolved, onSet, onRemove }: 
 export function DocFields({ theme, draft, maskedPaths, unresolvedPaths, onChange }: FieldsProps) {
   const leaves = flattenDoc(draft);
   const draftSecret = maskJson(draft).maskedPaths;
-  if (leaves.length === 0) return <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>The document is empty.</Text>;
+  if (leaves.length === 0) return <Text style={{ color: theme.colors.foregroundMuted, ...font(TYPE.body) }}>The document is empty.</Text>;
   return (
     <View>
       {leaves.map((leaf) => {

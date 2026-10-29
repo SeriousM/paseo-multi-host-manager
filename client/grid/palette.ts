@@ -1,14 +1,27 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import type { CellTone } from "../state/grid-model";
 
+/**
+ * Fixed row heights keep the label column aligned with the host columns; they follow from TYPE (two text lines plus
+ * padding for a row, five for a host header). Column widths come from `gridLayout`.
+ */
 export const SIZES = {
-  labelWidth: 280,
-  columnWidth: 210,
-  headerHeight: 112,
-  sectionHeight: 30,
-  rowHeight: 58,
-  pluginRowHeight: 64,
+  labelWidth: 290,
+  minColumnWidth: 220,
+  maxColumnWidth: 420,
+  headerHeight: 150,
+  sectionHeight: 36,
+  rowHeight: 76,
+  pluginRowHeight: 84,
 } as const;
+
+/** Type scale: body 15, secondary 13. Monospace values one step smaller, since the face runs wider. */
+export const TYPE = { title: 18, heading: 16, body: 15, control: 14, mono: 14, secondary: 13, badge: 12 } as const;
+
+/** Font size with a line height of 1.4: one call per text style, so the scale and its spacing change together. */
+export function font(size: number): { fontSize: number; lineHeight: number } {
+  return { fontSize: size, lineHeight: Math.round(size * 1.4) };
+}
 
 export const MONO = { fontFamily: "monospace" } as const;
 

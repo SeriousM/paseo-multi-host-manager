@@ -7,6 +7,9 @@ import { pluginCellView, pluginRows, rowCellView, SETTINGS_ROWS } from "../state
 import type { CellView } from "../state/grid-model";
 import type { CellRef, MhmState, StageInput } from "../state/types";
 import type { MhmSurfaceProps } from "../surface";
+import { HubOnlyPanel } from "./hub-only-panel";
+import { hubOnly } from "./layout";
+import { font, TYPE } from "./palette";
 import { Badge, Button } from "./primitives";
 
 interface CompareLine {
@@ -42,9 +45,9 @@ function compareLines(state: MhmState, into: string, from: string): CompareLine[
 
 function HostPicker({ theme, label, value, onPick, hosts }: Pick<MhmSurfaceProps, "theme"> & { label: string; value: string | null; onPick: (id: string) => void; hosts: MhmState["hosts"] }) {
   return (
-    <View style={{ gap: 4 }}>
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>{label}</Text>
-      <ScrollView horizontal contentContainerStyle={{ gap: 6 }}>
+    <View style={{ gap: 6 }}>
+      <Text style={{ color: theme.colors.foregroundMuted, ...font(TYPE.secondary) }}>{label}</Text>
+      <ScrollView horizontal contentContainerStyle={{ gap: 8 }}>
         {hosts.map((host) => (
           <Button key={host.id} theme={theme} label={host.label} active={host.id === value} onPress={() => onPick(host.id)} />
         ))}
@@ -67,26 +70,34 @@ export function CompactView({ theme, controller }: Pick<MhmSurfaceProps, "theme"
   const fromHost = state.hosts.find((host) => host.id === from);
   const blocked = [intoHost, fromHost].find((host) => host && !host.result.ok);
 
+  if (hubOnly(state.hosts)) {
+    return (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14 }}>
+        <HubOnlyPanel theme={theme} controller={controller} />
+      </ScrollView>
+    );
+  }
+
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 10 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, gap: 12 }}>
       <HostPicker theme={theme} label="Into" value={into} hosts={state.hosts} onPick={(id) => dispatch({ type: "setCompare", into: id })} />
       <HostPicker theme={theme} label="Pull from" value={from} hosts={state.hosts} onPick={(id) => dispatch({ type: "setCompare", from: id })} />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Button theme={theme} variant="primary" label={`Stage all differences (${all.length})`} disabled={all.length === 0} onPress={() => dispatch({ type: "stage", inputs: all })} />
       </View>
       {blocked && !blocked.result.ok ? (
-        <Text style={{ color: colors.statusDanger, fontSize: 12 }}>
+        <Text style={{ color: colors.statusDanger, ...font(TYPE.body) }}>
           {blocked.label}: {blocked.result.error.message}
         </Text>
       ) : null}
-      {into === from ? <Text style={{ color: colors.foregroundMuted, fontSize: 12 }}>Pick two different hosts.</Text> : null}
+      {into === from ? <Text style={{ color: colors.foregroundMuted, ...font(TYPE.body) }}>Pick two different hosts.</Text> : null}
       {lines.map((line) => {
         const plan = line.plan;
         const [severity, status] = !plan ? (["muted", "not on source"] as const) : plan.ok ? (plan.inputs[0]?.op === "installPlugin" ? (["bad", "missing"] as const) : (["warn", "differs"] as const)) : plan.same ? (["ok", "same"] as const) : (["muted", plan.reason] as const);
         return (
-          <View key={line.key} style={{ borderBottomWidth: 1, borderColor: colors.border, paddingVertical: 7, gap: 3 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text numberOfLines={1} style={{ color: colors.foreground, fontWeight: "600", fontSize: 12, flexShrink: 1 }}>
+          <View key={line.key} style={{ borderBottomWidth: 1, borderColor: colors.border, paddingVertical: 10, gap: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text numberOfLines={1} style={{ color: colors.foreground, fontWeight: "600", ...font(TYPE.body), flexShrink: 1 }}>
                 {line.label}
               </Text>
               <Badge theme={theme} label={status.length > 40 ? `${status.slice(0, 39)}...` : status} severity={severity} />
@@ -95,10 +106,10 @@ export function CompactView({ theme, controller }: Pick<MhmSurfaceProps, "theme"
                 <Button theme={theme} variant="primary" label={plan.inputs[0]?.op === "installPlugin" ? "Install" : "Pull"} onPress={() => dispatch({ type: "stage", inputs: plan.inputs })} />
               ) : null}
             </View>
-            <Text numberOfLines={1} style={{ color: line.into.staged ? colors.statusWarning : colors.foregroundMuted, fontSize: 11 }}>
+            <Text numberOfLines={1} style={{ color: line.into.staged ? colors.statusWarning : colors.foregroundMuted, ...font(TYPE.secondary) }}>
               {intoHost?.label}: {line.into.text}
             </Text>
-            <Text numberOfLines={1} style={{ color: colors.foregroundMuted, fontSize: 11 }}>
+            <Text numberOfLines={1} style={{ color: colors.foregroundMuted, ...font(TYPE.secondary) }}>
               {fromHost?.label}: {line.from.text}
             </Text>
           </View>

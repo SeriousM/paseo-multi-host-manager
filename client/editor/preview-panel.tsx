@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Badge, Button } from "../grid/primitives";
-import { MONO, severityColor } from "../grid/palette";
+import { font, MONO, severityColor, TYPE } from "../grid/palette";
 import type { Severity } from "../grid/palette";
 import { summarizePreview } from "./doc-preview";
 import type { DocPreview, PreviewKind } from "./doc-preview";
@@ -29,22 +29,22 @@ export function PreviewPanel({ theme, preview, notes }: { theme: PluginTheme; pr
   const shown = preview.entries.filter((entry) => all || entry.kind !== "unchanged");
   return (
     <View style={{ gap: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, backgroundColor: colors.surface1 }}>
-      <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 12 }}>{summarizePreview(preview)}</Text>
+      <Text style={{ color: colors.foreground, fontWeight: "600", ...font(TYPE.body) }}>{summarizePreview(preview)}</Text>
       {notes.map((note) => (
-        <Text key={note} style={{ color: colors.statusWarning, fontSize: 11 }}>
+        <Text key={note} style={{ color: colors.statusWarning, ...font(TYPE.secondary) }}>
           {note}
         </Text>
       ))}
-      {preview.blocked ? <Text style={{ color: colors.statusDanger, fontSize: 11 }}>{preview.blocked}</Text> : null}
+      {preview.blocked ? <Text style={{ color: colors.statusDanger, ...font(TYPE.secondary) }}>{preview.blocked}</Text> : null}
       {shown.map((entry) => {
         const { label, severity } = KIND_LABEL[entry.kind];
         return (
           <View key={`${entry.kind}:${entry.path}`} style={{ gap: 2 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Badge theme={theme} label={label} severity={severity} />
-              <Text style={{ ...MONO, color: colors.foreground, fontSize: 11, flexShrink: 1 }}>{entry.path === "" ? "(document)" : entry.path}</Text>
+              <Text style={{ ...MONO, color: colors.foreground, ...font(TYPE.secondary), flexShrink: 1 }}>{entry.path === "" ? "(document)" : entry.path}</Text>
             </View>
-            <Text style={{ ...MONO, color: severityColor(theme, severity), fontSize: 11, paddingLeft: 4 }}>
+            <Text style={{ ...MONO, color: severityColor(theme, severity), ...font(TYPE.secondary), paddingLeft: 4 }}>
               {entry.before === null ? "" : entry.before}
               {entry.before !== null && entry.after !== null && entry.before !== entry.after ? "  ->  " : ""}
               {entry.after !== null && entry.before !== entry.after ? entry.after : ""}

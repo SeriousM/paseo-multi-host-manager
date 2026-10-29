@@ -1,5 +1,6 @@
 import { SettingsEditor } from "../editor/settings-editor";
 import type { MhmSurfaceProps } from "../surface";
+import { AddHostDialog } from "./add-host-dialog";
 import { CapabilitiesDialog } from "./capabilities-dialog";
 import { ConfirmDialog } from "./confirm-dialog";
 import { InstallDialog, PluginMenuDialog, RemoveDialog } from "./plugin-dialogs";
@@ -25,5 +26,7 @@ export function DialogHost(props: MhmSurfaceProps) {
       return <RemoveDialog {...common} pluginId={dialog.pluginId} hostId={dialog.hostId} />;
     case "editor":
       return <SettingsEditor {...common} hostId={dialog.hostId} pluginId={dialog.pluginId} settingsId={dialog.settingsId} />;
+    case "addHost":
+      return <AddHostDialog {...common} />;
   }
 }

@@ -84,7 +84,9 @@ export type DialogRequest =
   /** Remove a plugin from hosts; `hostId` preselects one. */
   | { kind: "remove"; pluginId: string; hostId: string | null }
   /** Settings-document editor (8c). */
-  | { kind: "editor"; pluginId: string; settingsId: string; hostId: string };
+  | { kind: "editor"; pluginId: string; settingsId: string; hostId: string }
+  /** Save a new host on the hub (a direct action, not staged). */
+  | { kind: "addHost" };
 
 export type ViewMode = "auto" | "grid" | "compact";
 
@@ -112,4 +114,6 @@ export interface MhmState {
   baseline: string | null;
   /** Hide rows where every comparable host equals the baseline. */
   onlyDifferences: boolean;
+  /** Registration id of a host Add host saved; its column is selected once a grid load has it. */
+  focusHost: string | null;
 }

@@ -2,8 +2,9 @@ import { useRpc, useSettings } from "@getpaseo/plugin/client";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { Dispatch } from "react";
-import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc } from "../../shared/contracts";
-import type { BrokerPolicy } from "../../shared/contracts";
+import { unencryptedLink } from "../../shared/connection";
+import { applyPollRpc, applyStartRpc, docReadRpc, gridLoadRpc, hostAddRpc } from "../../shared/contracts";
+import type { BrokerPolicy, HostFailure } from "../../shared/contracts";
 import { DEFAULT_POLICY, brokerSettings } from "../../shared/policy";
 import { runApply } from "./apply-run";
 import { INITIAL_STATE, mhmReducer } from "./reducer";
@@ -30,6 +31,12 @@ export interface MhmController {
   confirm: (kind: Confirmation, itemIds: string[]) => void;
   /** Reads a settings document (`mhm.doc.read`, secrets masked) and puts it on the clipboard. Resolves to an error text or null. */
   copyDoc: (hostId: string, pluginId: string, settingsId: string) => Promise<string | null>;
+  /**
+   * Saves a host on the hub (`mhm.hosts.add`), right away, not staged. On success it allows the host in the policy when
+   * the user confirmed an unencrypted link, closes the dialog, reloads the grid and selects the new column. Resolves to
+   * the failure, or null on success.
+   */
+  addHost: (input: { connection: string; label: string; allowUnencrypted: boolean }) => Promise<HostFailure | string | null>;
 }
 
 function message(error: unknown): string {
@@ -42,6 +49,7 @@ export function useMhm(hostId: string): MhmController {
   const startApply = useRpc(applyStartRpc);
   const pollApply = useRpc(applyPollRpc);
   const readDoc = useRpc(docReadRpc);
+  const saveHost = useRpc(hostAddRpc);
   const settings = useSettings(brokerSettings);
   const policy = settings.status === "ready" ? settings.values : DEFAULT_POLICY;
   const policyNote =
@@ -116,6 +124,28 @@ export function useMhm(hostId: string): MhmController {
     [settings],
   );
 
+  const addHost = useCallback(
+    async ({ connection, label, allowUnencrypted }: { connection: string; label: string; allowUnencrypted: boolean }) => {
+      let result;
+      try {
+        result = await saveHost({ ...policy, connection, ...(label.trim() ? { label: label.trim() } : null), allowUnencrypted });
+      } catch (error) {
+        return message(error);
+      }
+      if (!result.ok) return result.error;
+      const { registrationId, link } = result.host;
+      dispatch({ type: "hostAdded", registrationId });
+      // The user confirmed this link in the dialog: the grid reaches the host with the same policy as an allowed saved host.
+      // A new policy reloads the grid by itself (it is part of the query key).
+      if (allowUnencrypted && unencryptedLink(link) && !policy.insecureLinkRegistrationIds.includes(registrationId)) {
+        if (await savePolicy({ ...policy, insecureLinkRegistrationIds: [...policy.insecureLinkRegistrationIds, registrationId] })) return null;
+      }
+      refresh();
+      return null;
+    },
+    [policy, refresh, savePolicy, saveHost],
+  );
+
   return {
     state,
     dispatch,
@@ -126,5 +156,6 @@ export function useMhm(hostId: string): MhmController {
     apply,
     confirm,
     copyDoc,
+    addHost,
   };
 }
