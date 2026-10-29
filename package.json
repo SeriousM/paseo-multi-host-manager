@@ -1,7 +1,7 @@
 {
   "name": "paseo-multi-host-manager",
   "version": "0.0.1",
-  "description": "Paseo plugin: compare and copy settings and plugins across all your Paseo hosts from one grid",
+  "description": "Paseo plugin: settings and plugins of every saved Paseo host in one grid, copied between hosts on request",
   "keywords": [
     "paseo",
     "paseo-plugin",
@@ -11,7 +11,7 @@
     "sync"
   ],
   "license": "MIT",
-  "author": "Bernhard Millauer",
+  "author": "Bernhard Millauer, adventics Service GmbH",
   "type": "module",
   "homepage": "https://github.com/SeriousM/paseo-multi-host-manager",
   "bugs": {
