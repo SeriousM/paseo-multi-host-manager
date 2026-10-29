@@ -16,6 +16,7 @@ One reducer, `mhmReducer(state, action)` in `reducer.ts`; pure and unit-tested (
 | `pasteTargets` | Host ids picked for "paste to several hosts". |
 | `staged` | `StagedItem[]`: `item` (an `ApplyItem`), `status`, last `outcome`, `requires` / `confirmed` confirmations. |
 | `writtenDocs` | "Written, validity unknown" markers per host, plugin and document; outlive `clearApplied`, cleared by a successful reload of that plugin or `dismissWritten`. |
+| `baseline`, `onlyDifferences` | Host reference every other host is compared with (`client/state/compare.ts`), and the "Only differences" filter. |
 | `applying`, `dialog`, `view`, `compare` | Apply running; open dialog; `auto`/`grid`/`compact`; compact view's "into"/"from" hosts. |
 
 Controller: `state`, `dispatch`, `policy` + `savePolicy` (broker policy, host-scoped settings doc `broker` on the hub,
@@ -71,3 +72,17 @@ Notes from 8b:
 - `{ kind: "install", pluginId: "", hostId: null }` opens the install dialog for a new plugin from a typed source (registry id, `npm:`, `git:`); credentials in the URL and local directories are refused with the server's rules.
 - The clipboard bar stages row and plugin pastes with `pasteTargets`. For a settings-document clipboard its chips open the editor on that host instead (the editor reads the target document first, so masked secrets keep the target's own values).
 - The trust dialog has two checkboxes when a source is not pinned ("installs the latest release"); destructive and lockout have one. Pure view logic: `drawer/staging-view.ts`, `dialogs/confirm-text.ts`, `dialogs/plugin-rules.ts`, `dialogs/capability-report.ts`, `clipboard/paste-chips.ts` (tests: `test/unit/client-dialogs.test.ts`).
+
+## Baseline comparison (client/state/compare.ts)
+Tap a host header: the action bar offers "Use as baseline" / "Clear baseline", "Stage N from baseline" and Capabilities.
+With a baseline, `compareRowCell` / `comparePluginCell` lay a compare state over every cell: `baseline`, `same`,
+`differs`, `missing` (the baseline has it, this host not) or `not_comparable` (a blocked host or baseline, or a side
+that cannot be read: companion missing, needs a newer Paseo, unreadable, never read). Rules:
+- Settings rows compare deeply; a leaf that is masked on either side is skipped ("secrets not compared" when that
+  is the only possible difference). Host-specific rows (listen, saved connection, worktree root) are compared but
+  only inform: they are not counted in a header's "N differ" and do not keep a row in "Only differences".
+- Plugins compare installed or not, version (`compareVersions`: older / newer / other revision) and enabled state.
+- Pending and applying staged items count as done: a cell compares the value it will have after Apply.
+- A baseline replaces the clipboard's source/differs highlight. "Copy from baseline" and "Stage N from baseline" go
+  through `planPaste`: every paste rule and confirmation applies; what cannot be staged is listed with the reason.
+- Setting a baseline makes it the compact view's "Pull from" host. The baseline survives reloads by registration id.
