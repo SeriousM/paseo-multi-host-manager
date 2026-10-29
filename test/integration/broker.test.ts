@@ -32,7 +32,7 @@ describe.skipIf(!enabled)("broker through the hub plugin", () => {
       expect(host?.result.ok).toBe(true);
     }
     for (const host of hosts.filter((h) => h.result.ok)) {
-      expect(host.result.ok && host.result.snapshot.version).toMatch(/^0\.13\./);
+      expect(host.result.ok && host.result.snapshot.version).toMatch(/^\d+\.\d+\.\d+/);
       expect(host.result.ok && host.result.snapshot.features).toContain("connectedHosts");
     }
     expect(hosts.find((h) => h.isHub)?.result.ok).toBe(true);

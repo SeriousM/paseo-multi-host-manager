@@ -126,7 +126,7 @@ if (rows) {
     console.log(`${pad(name, 24)}${pad(row.passed, 8)}${pad(row.failed.length, 8)}${result}${row.skipped ? ` (${row.skipped} skipped)` : ""}`);
   }
   for (const row of rows.values()) {
-    for (const f of row.failed) console.log(`\nFAILED ${f.name}\n${tail(f.message, 8)}`);
+    for (const f of row.failed) console.log(`\nFAILED ${f.name}\n${redact(f.message.trim().split("\n").slice(0, 8).join("\n"))}`);
   }
 }
 console.log(`${pad("hub unchanged", 24)}${hubOk ? "PASS" : "FAIL"}`);

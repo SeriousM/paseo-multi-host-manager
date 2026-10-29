@@ -219,6 +219,6 @@ Still open:
 - Will the registry reviewer accept the credential/env reads, `config.json` and cross-plugin file writes, and the internal client entry? (Ask before implementing; fallback is documenting them in `OVERVIEW.md` or shipping the writers as a separate opt-in plugin.)
 - Restart-required rows: only classified by `reloadDaemonConfig`; effect after an actual restart not exercised.
 - Reload-applied keys beyond the 17 rows (`hostnames`, `cors`, `trustedProxies`, `git.*`, `app.baseUrl`, ...) are from server source only.
-- Client 0.13.0 against an actual 0.13.0 daemon; 0.14 beta against the pinned client.
+- ~~Client 0.13.0 against an actual 0.13.0 daemon; 0.14 beta against the pinned client.~~ Done in WP9: `npm run matrix -- --paseo 0.13.0` and `--paseo beta` (0.14.0) both pass with W and L on that version (hub on 0.13.2). 0.13.0 as the hub is untested.
 - Password-protected hub with real user relays, Linux hub on a real machine, macOS (unchanged).
 - Bootstrapping the companion on a fresh host (install through the hub like any plugin, needs `pluginsEnabled`), "Add host" via `paseo.hosts.add` in the UI (unchanged).
