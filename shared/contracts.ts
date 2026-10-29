@@ -218,7 +218,10 @@ export const applyOutcomeSchema = z.discriminatedUnion("status", [
     validity: z.literal("unknown").optional(),
     /** True when a `reloadPlugin` item would make the plugin pick the document up. */
     reloadSuggested: z.boolean().optional(),
-    /** `setRow`: the patch was accepted but the re-read that checks it failed (e.g. relay off dropped the connection). The next `mhm.grid.load` shows the real state. */
+    /**
+     * `setRow`: the patch was sent but could not be checked: the re-read failed, or (relay off over the host's relay link)
+     * the link dropped before the answer came back. The next `mhm.grid.load` shows the real state.
+     */
     unverified: z.boolean().optional(),
   }),
   /** The daemon took the call but did not apply these config paths (it silently ignores unknown keys). */

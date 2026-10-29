@@ -531,6 +531,18 @@ describe("setRow verification", () => {
     expect(W.config.relay).toEqual({ enabled: false });
   });
 
+  it("reports relay off over the relay link as ok but unverified when the link drops under the patch call", async () => {
+    const { hub, W, session } = setup();
+    for (const fake of [W, hub]) fake.fail.patchDaemonConfig = codedError("connection lost", "DAEMON_CONNECTION_LOST");
+    const results = await run(session, [
+      { id: "relay", host: "srv_W", op: "setRow", rowId: "relay", value: false, confirmed: true },
+      { id: "hubRelay", host: "srv_hub", op: "setRow", rowId: "relay", value: false },
+    ]);
+    expect(results[0].outcome).toEqual({ status: "ok", unverified: true });
+    // Over any other link, or for any other row, a lost connection stays a failure.
+    expect(results[1].outcome).toMatchObject({ status: "failed", error: { code: "host_offline" } });
+  });
+
   it("still fails when the patch itself fails", async () => {
     const { W, session } = setup();
     W.fail.patchDaemonConfig = codedError("no", "boom");

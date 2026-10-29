@@ -28,6 +28,8 @@ interface Planned {
   /** Set when the item is rejected before any host is contacted. */
   rejected: ApplyOutcome | null;
   patch?: MutableDaemonConfigPatch;
+  /** Relay off on a host the hub reaches over a relay link: the item ends its own connection. */
+  dropsLink?: boolean;
 }
 
 function failed(error: HostFailure, currentRevision?: string): ApplyOutcome {
@@ -48,10 +50,11 @@ function plan(item: ApplyItem, host: HostEntry): Planned {
     if ("invalid" in built) return reject(hostFailure("invalid_item", built.invalid));
     patch = built.patch;
   }
-  const cutsOff = ownPluginDown || (item.op === "setRow" && item.value === false && (item.rowId === "pen" || (item.rowId === "relay" && host.link === "relay")));
+  const dropsLink = item.op === "setRow" && item.rowId === "relay" && item.value === false && host.link === "relay";
+  const cutsOff = ownPluginDown || dropsLink || (item.op === "setRow" && item.rowId === "pen" && item.value === false);
   if (cutsOff && item.confirmed !== true) return reject(hostFailure("lockout_confirmation_required"));
   if ((item.op === "installPlugin" || item.op === "removePlugin") && item.confirmed !== true) return reject(hostFailure("confirmation_required"));
-  return { item, rejected: null, patch };
+  return { item, rejected: null, patch, dropsLink };
 }
 
 /**
@@ -188,7 +191,11 @@ async function runItem(client: DaemonClient, features: readonly string[], planne
   try {
     return await runOperation(client, planned);
   } catch (error) {
-    return failed(failureFromError(error, "host_error"));
+    const failure = failureFromError(error, "host_error");
+    // The daemon switches the relay off before its answer is out, so the link drops under the call (seen on 0.13.2):
+    // the patch took effect, only the answer is lost. `mhm.grid.load` shows the real state.
+    if (planned.dropsLink && failure.code === "host_offline") return { status: "ok", unverified: true };
+    return failed(failure);
   }
 }
 
