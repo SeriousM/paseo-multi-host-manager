@@ -1,6 +1,6 @@
 # Implementation plan
 
-Decisions: companion is the same plugin, installed through the hub; distribution via the Paseo registry; no `config.json` writes (reload-safe keys go through `config.patch`); restart-only rows are read-only in v1; secrets masked by key-name and value pattern, with a per-paste preview.
+Decisions: companion is the same plugin, installed through the hub from the hub's own install source; distribution via git now and the Paseo registry once listed; no `config.json` writes (reload-safe keys go through `config.patch`); restart-only rows are read-only in v1; secrets masked by key-name and value pattern, with a per-paste preview; apply only as a job on the hub (`mhm.apply.start` / `mhm.apply.poll`), hosts one after the other.
 
 ## Capability tiers (registry acceptance)
 Each tier is documented in `OVERVIEW.md` with the exact file/API it touches.

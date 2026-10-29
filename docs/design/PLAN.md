@@ -1,3 +1,5 @@
+> Historic first draft, superseded by IMPLEMENTATION.md and the README.
+
 # Multi-Host Manager - Paseo plugin plan
 
 ## Goal

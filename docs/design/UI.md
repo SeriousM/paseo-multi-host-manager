@@ -17,7 +17,7 @@ One reducer, `mhmReducer(state, action)` in `reducer.ts`; pure and unit-tested (
 | `staged` | `StagedItem[]`: `item` (an `ApplyItem`), `status`, last `outcome`, `requires` / `confirmed` confirmations. |
 | `writtenDocs` | "Written, validity unknown" markers per host, plugin and document; outlive `clearApplied`, cleared by a successful reload of that plugin or `dismissWritten`. |
 | `baseline`, `onlyDifferences` | Host reference every other host is compared with (`client/state/compare.ts`), and the "Only differences" filter. |
-| `applying`, `dialog`, `view`, `compare` | Apply running; open dialog; `auto`/`grid`/`compact`; compact view's "into"/"from" hosts. |
+| `applying`, `applyNote`, `dialog`, `view`, `compare` | Apply running; why the last Apply did not start or lost its result (drawer line, cleared by the next Apply); open dialog; `auto`/`grid`/`compact`; compact view's "into"/"from" hosts. |
 
 Controller: `state`, `dispatch`, `policy` + `savePolicy` (broker policy, host-scoped settings doc `broker` on the hub,
 `shared/policy.ts`, `policyNote` when it fell back to defaults), `grid.refresh`, `apply()`, `confirm(kind, ids)`, `copyDoc(host, pluginId, settingsId)`.
@@ -30,16 +30,21 @@ Rules baked into the state:
   never staged (`stageRefusal`). `apply()` opens the missing confirmation first (lockout, destructive, trust), then
   sends the non-applied items with `confirmed: true` where all were given.
 - Apply and Retry send only `SENDABLE` items (pending, failed, skipped); ignored and unknown ones wait for a reload or removal.
-- Apply runs as a job on the hub: `mhm.apply.start`, then `mhm.apply.poll` every second (`applyProgress` merges the
-  items settled so far). A plugin RPC has 30 s on the daemon, less than one install may take. The hub applies hosts one
-  after the other in its directory order, the hub last; the drawer lists them in that order. While `applying`, every
-  staging action is ignored and results merge only into items being applied.
+- Apply runs as a job on the hub (`client/state/apply-run.ts`): `mhm.apply.start`, then `mhm.apply.poll` every second
+  (`applyProgress` merges the items settled so far). A plugin RPC has 30 s on the daemon, less than one install may
+  take; there is no synchronous apply RPC. The hub applies hosts one after the other in its directory order, the hub
+  last; the drawer lists them in that order. While `applying`, every staging action is ignored and results merge only
+  into items being applied.
+- No transport problem marks an item `failed`. A busy hub or a start call that fails ran nothing: the items go back to
+  `pending` (`applyNotStarted`). A failing poll is retried with a doubling delay (up to 8 s) for about 30 s; after that,
+  or when the hub no longer knows the job, the items still applying become `unknown` ("Result lost; reload the grid
+  before retrying", `applyLost`) and Retry leaves them out.
 - `updateChecks`: a check-only update that found an update shows "update available" on the plugin cell until the
   host reports another version or the user presses Refresh.
 - Failure texts per code and detail live in `client/state/failure-text.ts` (cells and drawer).
 - Settings documents are never pasted by the grid: the action bar and the clipboard bar open the editor on the target. This plugin's own documents are read-only (the companion refuses remote writes to them).
-- After Apply: per-item `ok` / `ignored` / `failed` / `skipped`; a lost response when the batch switched the hub's
-  relay or plugins off becomes `unknown`. The grid reloads after every apply. `clearApplied` drops the `ok` items.
+- After Apply: per-item `ok` / `ignored` / `failed` / `skipped` from the hosts, or `unknown` when the result was lost
+  (see above). The grid reloads after every apply. `clearApplied` drops the `ok` items.
 - `planPaste(state, clipboard, hostId)` (clipboard.ts) says what a paste stages or why not; use it for every paste
   affordance (action bar, chips, compact view).
 
@@ -72,6 +77,7 @@ Notes from 8b:
 - `{ kind: "install", pluginId: "", hostId: null }` opens the install dialog for a new plugin from a typed source (registry id, `npm:`, `git:`); credentials in the URL and local directories are refused with the server's rules.
 - The clipboard bar stages row and plugin pastes with `pasteTargets`. For a settings-document clipboard its chips open the editor on that host instead (the editor reads the target document first, so masked secrets keep the target's own values).
 - The trust dialog has two checkboxes when a source is not pinned ("installs the latest release"); destructive and lockout have one. Pure view logic: `drawer/staging-view.ts`, `dialogs/confirm-text.ts`, `dialogs/plugin-rules.ts`, `dialogs/capability-report.ts`, `clipboard/paste-chips.ts` (tests: `test/unit/client-dialogs.test.ts`).
+- "Install companion" in the capabilities dialog stages this plugin from the hub's own source (`companionInstall`: registry, npm or git, pinned where that source pins), the registry id only when the hub's source is unknown, and nothing when the hub runs a directory install.
 
 ## Baseline comparison (client/state/compare.ts)
 Tap a host header: the action bar offers "Use as baseline" / "Clear baseline", "Stage N from baseline" and Capabilities.
@@ -86,4 +92,6 @@ that cannot be read: companion missing, needs a newer Paseo, unreadable, never r
 - Pending and applying staged items count as done: a cell compares the value it will have after Apply.
 - A baseline replaces the clipboard's source/differs highlight. "Copy from baseline" and "Stage N from baseline" go
   through `planPaste`: every paste rule and confirmation applies; what cannot be staged is listed with the reason.
+  A providers difference is refused when the target has none of the baseline's provider ids (providers are only
+  updated, never created, from here); otherwise the server updates the ids the target has.
 - Setting a baseline makes it the compact view's "Pull from" host. The baseline survives reloads by registration id.
