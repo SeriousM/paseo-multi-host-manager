@@ -1,3 +1,6 @@
 .testenv/
 node_modules/
 .local/
+dist/
+coverage/
+*.tgz

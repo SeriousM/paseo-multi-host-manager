@@ -1,0 +1,46 @@
+{
+  "name": "multi-host-manager",
+  "version": "0.0.1",
+  "description": "View and manage settings and plugins of all your Paseo hosts from one screen.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/MultiHostManagerPaseoPlugin.git"
+  },
+  "files": [
+    "npm-shrinkwrap.json",
+    "paseo-plugin.json",
+    "OVERVIEW.md",
+    "OVERVIEW.*.md",
+    "index.server.ts",
+    "index.client.tsx",
+    "client/",
+    "server/",
+    "shared/"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "cross-env MHM_TESTENV=1 vitest run --config vitest.integration.config.ts",
+    "pack:check": "npm pack --dry-run"
+  },
+  "dependencies": {
+    "@getpaseo/client": "0.13.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@getpaseo/plugin": "0.13.0",
+    "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^22.0.0",
+    "@types/react": "~19.2.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.0.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0",
+    "zod": "^4.4.3"
+  }
+}

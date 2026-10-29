@@ -1,0 +1,8 @@
+{
+  "id": "multi-host-manager",
+  "name": "Multi-host manager",
+  "media": [],
+  "requirements": {
+    "paseo": ">=0.13.0"
+  }
+}
